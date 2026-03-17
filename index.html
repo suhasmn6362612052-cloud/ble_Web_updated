@@ -795,30 +795,24 @@
             height: 120px;
             background: #0a0f1e;
             border-radius: 50%;
-            border: 4px solid #00ffaa;
+            border: 4px solid #2a3a4a;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .angle-pointer {
-            width: 4px;
-            height: 50px;
-            background: #ffaa00;
-            position: absolute;
-            bottom: 60px;
-            left: 58px;
-            transform-origin: bottom center;
-            transform: rotate(0deg);
-            box-shadow: 0 0 10px #ffaa00;
+            transition: background 0.1s linear;
+            /* Will be updated via JS for pie chart */
         }
 
         .angle-value {
-            font-size: 28px;
+            z-index: 2;
+            /* Keep text above the pie background */
+            font-size: 20px;
             font-weight: bold;
             color: #00ffaa;
-            text-shadow: 0 0 10px #00ffaa;
+            text-shadow: 0 0 10px #0a0f1e;
+            /* Changed to dark shadow to stand out against pie chart colors */
+            text-align: center;
         }
 
         .angle-unit {
@@ -1582,11 +1576,12 @@
 
                                     <div class="autotune-angle-container"
                                         style="justify-content: center; margin-bottom: 20px;">
-                                        <div class="angle-circle">
-                                            <div class="angle-pointer" id="anglePointer"
-                                                style="transform: rotate(0deg);"></div>
+                                        <div class="angle-circle" id="autotuneTimerCircle">
+                                            <div class="angle-value" id="autotuneModeText"
+                                                style="font-size: 14px; color: #8899aa; z-index: 2;">Autotune
+                                                Mode<br>OFF</div>
                                         </div>
-                                        <div>
+                                        <div style="text-align: center; margin-left: 20px;">
                                             <div style="font-size: 48px;">
                                                 <span class="angle-value" id="autotuneAngle">0</span>
                                                 <span class="angle-unit">°</span>
@@ -1864,6 +1859,11 @@
         let hexFileText = "";
         let hexFileSize = 0;
         let hexFileOffset = 0;
+
+        // Autotune Timer State
+        let autotuneTimerInterval = null;
+        let autotuneTimeLeft = 0;
+        const AUTOTUNE_TIMEOUT_MS = 20000; // 20 seconds
 
         // Latest data
         let latestStatus = {};
@@ -2845,6 +2845,49 @@
         }
 
         // ==================== AUTO TUNE FUNCTIONS ====================
+        function startAutotuneTimer() {
+            if (autotuneTimerInterval) clearInterval(autotuneTimerInterval);
+
+            autotuneTimeLeft = AUTOTUNE_TIMEOUT_MS;
+            document.getElementById('autotuneModeText').innerHTML = 'Autotune Mode<br>ON';
+            document.getElementById('autotuneModeText').style.color = '#ffaa00';
+            document.getElementById('autotuneResultStatus').textContent = 'WAITING...';
+            document.getElementById('autotuneResultStatus').style.color = '#ffaa00';
+
+            const circle = document.getElementById('autotuneTimerCircle');
+
+            autotuneTimerInterval = setInterval(() => {
+                autotuneTimeLeft -= 100; // update every 100ms
+
+                if (autotuneTimeLeft <= 0) {
+                    clearInterval(autotuneTimerInterval);
+                    autotuneTimeLeft = 0;
+                    document.getElementById('autotuneModeText').innerHTML = 'Autotune Mode<br>OFF';
+                    document.getElementById('autotuneModeText').style.color = '#8899aa';
+                    circle.style.background = `#0a0f1e`;
+
+                    // Show timeout locally if we didn't receive an answer
+                    if (document.getElementById('autotuneResultStatus').textContent === 'WAITING...') {
+                        document.getElementById('autotuneResultStatus').textContent = 'UNSUCCESSFUL';
+                        document.getElementById('autotuneResultStatus').style.color = '#ff4444';
+                    }
+                } else {
+                    // Update Pie Chart
+                    const progress = 1 - (autotuneTimeLeft / AUTOTUNE_TIMEOUT_MS);
+                    const degrees = progress * 360;
+                    circle.style.background = `conic-gradient(#ffaa00 ${degrees}deg, #0a0f1e ${degrees}deg)`;
+                }
+            }, 100);
+        }
+
+        function stopAutotuneTimer() {
+            if (autotuneTimerInterval) clearInterval(autotuneTimerInterval);
+            autotuneTimerInterval = null;
+            document.getElementById('autotuneModeText').innerHTML = 'Autotune Mode<br>OFF';
+            document.getElementById('autotuneModeText').style.color = '#8899aa';
+            document.getElementById('autotuneTimerCircle').style.background = `#0a0f1e`;
+        }
+
         function sendAutotuneCustomCommand() {
             const jsonText = document.getElementById('autotuneJsonInput').value.trim();
             if (!jsonText) return;
@@ -2859,6 +2902,7 @@
                 document.getElementById('autotuneSendStatus').style.color = '#00ffaa';
 
                 addToAutotuneSentHistory(jsonData);
+                startAutotuneTimer();
 
                 setTimeout(() => {
                     document.getElementById('autotuneSendStatus').textContent = '';
@@ -2870,6 +2914,8 @@
         }
 
         function updateAutotuneStatus(data) {
+            stopAutotuneTimer();
+
             if (data.status === 'timeout') {
                 document.getElementById('autotuneStatus').textContent = '❌ Autotune Timeout';
                 document.getElementById('autotuneStatus').style.color = '#ff4444';
@@ -2885,8 +2931,15 @@
 
                 if (data.offset_angle !== undefined) {
                     const angle = data.offset_angle;
-                    document.getElementById('autotuneAngle').textContent = angle.toFixed(2);
-                    document.getElementById('anglePointer').style.transform = `rotate(${angle}deg)`;
+
+                    document.getElementById('autotuneAngle').innerHTML = `${angle.toFixed(2)} <span style="font-size: 14px; color: #8899aa;">°</span>`;
+
+                    // Render pie chart for angle. Modulo 360 just in case.
+                    const safeAngle = Math.max(0, Math.min(360, angle % 360));
+                    const circle = document.getElementById('autotuneTimerCircle');
+
+                    // Draw a pie chart that is filled 'safeAngle' degrees with green
+                    circle.style.background = `conic-gradient(#00ffaa ${safeAngle}deg, #0a0f1e ${safeAngle}deg)`;
                 }
             }
 
