@@ -1110,9 +1110,14 @@
                     <span id="deviceInfo" style="color: #ffaa00;">None selected</span>
                 </div>
 
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <button class="btn btn-success" id="connectBtn" style="flex: 1;" disabled>🔌 CONNECT</button>
                     <button class="btn btn-danger" id="disconnectBtn" style="flex: 1;" disabled>❌ DISCONNECT</button>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-warning" onclick="clearFirebaseData()" style="flex: 1; font-size: 11px;">🗑️
+                        CLEAR FIREBASE DB</button>
                 </div>
             </div>
 
@@ -1464,13 +1469,26 @@
                         <div class="send-layout">
                             <div class="send-left">
                                 <!-- Send Update Request Panel -->
+                                <!-- Send Update Request Panel -->
                                 <div class="grid-panel">
                                     <div class="grid-title">📤 SEND SW UPDATE REQUEST</div>
                                     <button class="btn btn-warning" onclick="sendSwUpdateRequest()"
                                         style="width: 100%; margin-top: 10px; padding: 15px;">📤 REQUEST SW
                                         UPDATE</button>
-                                    <div id="swUpdateSendStatus"
-                                        style="color: #8899aa; margin-top: 10px; font-weight: bold; text-align: center;">
+                                </div>
+
+                                <!-- OTA Status Panel -->
+                                <div class="top-error-panel" id="swUpdateStatusPanel"
+                                    style="margin-top: 15px; display: block; border-left: 4px solid #00ffaa; padding: 10px;">
+                                    <div class="error-header">
+                                        <span class="error-title" style="color: #00ffaa;">📶 OTA MESSAGE STATUS</span>
+                                        <span class="error-count" id="swUpdateMsgCount"
+                                            style="background:#00ffaa; color:#0a0f1e;">0</span>
+                                    </div>
+                                    <div id="swUpdateStatusList" style="max-height: 150px; overflow-y: auto;">
+                                        <div id="swUpdateEmptyText"
+                                            style="color: #8899aa; text-align: center; padding: 20px;">WAITING FOR
+                                            MESSAGES...</div>
                                     </div>
                                 </div>
 
@@ -1707,6 +1725,22 @@
                 });
             } catch (e) {
                 console.error('Firebase set error:', e);
+            }
+        }
+
+        function clearFirebaseData() {
+            if (!firebaseReady || !firebaseDB) {
+                alert("Firebase is not connected.");
+                return;
+            }
+            if (confirm("Are you sure you want to completely clear ALL data from Firebase? This cannot be undone.")) {
+                try {
+                    firebaseDB.ref().remove()
+                        .then(() => alert("Firebase data cleared successfully!"))
+                        .catch(err => alert("Error clearing Firebase: " + err.message));
+                } catch (e) {
+                    console.error('Firebase clear error:', e);
+                }
             }
         }
 
@@ -2936,23 +2970,92 @@
             }
         }
 
-        function updateSwUpdateStatus(data) {
-            const statusPanel = document.getElementById('swUpdateSendStatus');
-            // Assuming data contains status property regarding success/unsuccessful
-            const isSuccess = data.status === 'success' || data.status === 'successful' || data.ack === true;
+        const otaStatusCodes = {
+            0: "No Error",
+            1: "Boot Mode Entered",
+            2: "NVM Erase In Progress...",
+            3: "NVM Erase Completed",
+            4: "Writing In Progress...",
+            5: "Write Completed",
+            6: "Boot Completed",
+            7: "Kernel Load Completed",
+            8: "Signature Verification Failed",
+            9: "NVM Initialization Failed",
+            10: "NVM Erase Failed",
+            11: "Write Failed",
+            12: "NVM Data Validation Failed",
+            13: "CAN Error",
+            14: "CAN Receive Failed",
+            15: "Boot Failed"
+        };
 
-            if (isSuccess || !data.status) {
-                // If it's explicitly success, or if we don't know the format, default vaguely positive
-                statusPanel.textContent = 'UPDATE REQUEST: SUCCESSFUL';
-                statusPanel.style.color = '#00ffaa';
-            } else {
-                statusPanel.textContent = 'UPDATE REQUEST: UNSUCCESSFUL (' + data.status + ')';
-                statusPanel.style.color = '#ff4444';
+        let swUpdateMsgCounter = 0;
+
+        function updateSwUpdateStatus(data) {
+            const listContainer = document.getElementById('swUpdateStatusList');
+            const emptyText = document.getElementById('swUpdateEmptyText');
+            const msgCount = document.getElementById('swUpdateMsgCount');
+
+            // Remove the 'waiting for messages' text if it exists
+            if (emptyText) {
+                emptyText.remove();
             }
 
-            setTimeout(() => {
-                statusPanel.textContent = '';
-            }, 5000);
+            swUpdateMsgCounter++;
+            msgCount.textContent = swUpdateMsgCounter;
+
+            let messageString = "";
+            let dotColorClass = "inactive"; // green dot
+            let messageColor = "#00ffaa";
+
+            // Check if there is a numeric status code
+            if (data.status !== undefined && typeof data.status === 'number') {
+                const message = otaStatusCodes[data.status] || `Unknown Status Code: ${data.status}`;
+
+                // Red for errors (8-15), Yellow for in progress (2, 4), Green for success (0, 1, 3, 5, 6, 7)
+                if (data.status >= 8) {
+                    messageString = '❌ ' + message;
+                    messageColor = '#ff4444';
+                    dotColorClass = 'active'; // red dot
+                } else if (data.status === 2 || data.status === 4) {
+                    messageString = '⏳ ' + message;
+                    messageColor = '#ffaa00';
+                    dotColorClass = 'inactive';
+                } else {
+                    messageString = '✓ ' + message;
+                    messageColor = '#00ffaa';
+                    dotColorClass = 'inactive';
+
+                    if (data.status === 0 || data.status === 1) {
+                        document.getElementById('swUpdateFileStatus').textContent = 'READY FOR FILE';
+                        document.getElementById('swUpdateFileStatus').style.color = '#00ffaa';
+                    }
+                }
+            } else {
+                // Fallback for non-numeric or missing status
+                const isSuccess = data.status === 'success' || data.status === 'successful' || data.ack === true;
+                if (isSuccess || !data.status) {
+                    messageString = 'UPDATE REQUEST: ACKNOWLEDGED';
+                    messageColor = '#00ffaa';
+                    dotColorClass = 'inactive';
+                } else {
+                    messageString = 'UPDATE REQUEST: UNSUCCESSFUL (' + data.status + ')';
+                    messageColor = '#ff4444';
+                    dotColorClass = 'active';
+                }
+            }
+
+            // Create row
+            const row = document.createElement('div');
+            row.className = 'error-message-row';
+            row.innerHTML = `
+                <div class="error-message-status ${dotColorClass}"></div>
+                <div class="error-message-text" style="color: ${messageColor}; font-weight: bold;">${messageString}</div>
+                <div class="error-message-time">${new Date().toLocaleTimeString()}</div>
+            `;
+
+            // Prepend so newest is on top
+            listContainer.insertBefore(row, listContainer.firstChild);
         }
 
         function handleHexFileSelect(event) {
