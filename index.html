@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DCU BLUETOOTH DCU - DASHBOARD </title>
+
+    <!-- Firebase SDK Setup -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         /* KEEP ALL EXISTING CSS STYLES EXACTLY AS BEFORE */
         * {
@@ -1406,33 +1411,13 @@
                     <div id="autotuneTab" style="display: none;">
                         <div class="send-layout">
                             <div class="send-left">
-                                <!-- Send JSON Panel -->
+                                <!-- Send Command Panel -->
                                 <div class="grid-panel">
                                     <div class="grid-title">📤 SEND AUTOTUNE COMMAND</div>
-                                    <textarea id="autotuneJsonInput"
-                                        class="json-textarea">{"cmd": "auto tune"}</textarea>
                                     <button class="btn btn-warning" onclick="sendAutotuneCustomCommand()"
-                                        style="width: 100%; margin-top: 10px; padding: 15px;">📤 SEND AUTOTUNE
-                                        JSON</button>
+                                        style="width: 100%; margin-top: 20px; padding: 15px;">📤 SEND AUTOTUNE
+                                        CMD</button>
                                     <div id="autotuneSendStatus" style="color: #8899aa; margin-top: 10px;"></div>
-                                </div>
-
-                                <!-- Sent History -->
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📤 SENT HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('autotuneSent')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearAutotuneSentHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
-                                    </div>
-                                    <div class="history-list" id="autotuneSentHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No sent history
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1441,18 +1426,17 @@
                                 <div class="autotune-panel" style="margin-bottom: 15px;">
                                     <div class="autotune-header">
                                         <span class="autotune-title">🎯 RECEIVED OFFSET ANGLE</span>
-                                        <span class="autotune-status" id="autotuneStatus"
-                                            style="margin-left:auto;">Waiting...</span>
                                     </div>
 
                                     <div class="autotune-angle-container"
-                                        style="justify-content: center; margin-bottom: 20px;">
-                                        <div class="angle-circle" id="autotuneTimerCircle">
+                                        style="justify-content: center; margin-bottom: 20px; align-items: center; gap: 40px;">
+                                        <div style="text-align: center;">
                                             <div class="angle-value" id="autotuneModeText"
-                                                style="font-size: 14px; color: #8899aa; z-index: 2;">Autotune
-                                                Mode<br>OFF</div>
+                                                style="font-size: 16px; font-weight: bold; color: #8899aa; margin-bottom: 10px;">
+                                                Autotune Mode<br>OFF</div>
                                         </div>
-                                        <div style="text-align: center; margin-left: 20px;">
+                                        <div class="angle-circle" id="autotuneTimerCircle"></div>
+                                        <div style="text-align: center;">
                                             <div style="font-size: 48px;">
                                                 <span class="angle-value" id="autotuneAngle">0</span>
                                                 <span class="angle-unit">°</span>
@@ -1471,24 +1455,6 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Receive History -->
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📥 RECEIVED HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('autotuneReceived')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearAutotuneReceivedHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
-                                    </div>
-                                    <div class="history-list" id="autotuneReceivedHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No received
-                                            history</div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1500,8 +1466,6 @@
                                 <!-- Send Update Request Panel -->
                                 <div class="grid-panel">
                                     <div class="grid-title">📤 SEND SW UPDATE REQUEST</div>
-                                    <textarea id="swUpdateJsonInput"
-                                        class="json-textarea">{"cmd": "sw_update_req"}</textarea>
                                     <button class="btn btn-warning" onclick="sendSwUpdateRequest()"
                                         style="width: 100%; margin-top: 10px; padding: 15px;">📤 REQUEST SW
                                         UPDATE</button>
@@ -1510,22 +1474,18 @@
                                     </div>
                                 </div>
 
-                                <!-- SW Update Sent History -->
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📤 SENT HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('swupdateSent')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearSwUpdateSentHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
+                                <!-- Send Requested Bytes Panel -->
+                                <div class="grid-panel" style="margin-top: 15px;">
+                                    <div class="grid-title">📦 SEND REQUESTED BYTES</div>
+                                    <div
+                                        style="background: rgba(10, 15, 30, 0.5); padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
+                                        <div style="color: #8899aa; font-size: 12px; margin-bottom: 5px;">REQUESTED
+                                            BYTES PENDING:</div>
+                                        <div id="pendingByteRequest"
+                                            style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
                                     </div>
-                                    <div class="history-list" id="swUpdateSentHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No sent history
-                                        </div>
-                                    </div>
+                                    <button class="btn btn-primary" onclick="authorizeByteSend()" id="authorizeByteBtn"
+                                        disabled style="width: 100%; padding: 15px;">📤 SEND BYTES VIA BLE</button>
                                 </div>
                             </div>
 
@@ -1564,32 +1524,14 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Receive History -->
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📥 RECEIVED HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('swupdateReceived')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearSwUpdateReceivedHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
-                                    </div>
-                                    <div class="history-list" id="swUpdateReceivedHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No received
-                                            history</div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Error Status Tab - ADDED Top Error Panel and Export -->
-                    <div id="errorTab" style="display: none;">
+                    <!-- Error Status Tab -->
+                    <div id="errorTab" style="display: none; padding: 15px;">
                         <!-- TOP ERROR PANEL - Always visible -->
-                        <div class="top-error-panel" id="topErrorPanel" style="display: none;">
+                        <div class="top-error-panel" id="topErrorPanel" style="display: none; margin-bottom: 20px;">
                             <div class="error-header">
                                 <span class="error-title">⚠️ ACTIVE ERRORS</span>
                                 <span class="error-count" id="activeErrorCount">0</span>
@@ -1599,62 +1541,8 @@
                             </div>
                         </div>
 
-                        <!-- Message Status -->
-                        <div class="grid-panel">
-                            <div class="grid-title">📨 MESSAGE STATUS</div>
-                            <div class="scroll-control">
-                                <div class="scroll-toggle on" id="errorScrollToggle" onclick="toggleScroll('error')">
-                                </div>
-                                <span class="scroll-label" id="errorScrollLabel">Auto-scroll ON</span>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                <div class="status-row">
-                                    <span class="status-led" id="errorMsgIndicator">●</span>
-                                    <span id="errorMsgStatus">Waiting for fault messages</span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Messages:</span>
-                                    <span style="color: #ffaa00; font-size: 18px; font-weight: bold;"
-                                        id="errorMsgCount">0</span>
-                                </div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 0;">
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Type:</span>
-                                    <span style="color: #ffaa00;" id="errorLastType">---</span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Time:</span>
-                                    <span style="color: #ffaa00;" id="errorLastTime"></span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">CMD:</span>
-                                    <span style="color: #ffaa00;" id="errorLastCmd">---</span>
-                                </div>
-                            </div>
-                            <textarea id="errorPreview" class="json-textarea" readonly style="height: 50px;"></textarea>
-                        </div>
-
-                        <!-- Error Panels -->
-                        <div id="errorPanels"></div>
-
-                        <!-- Error Tab History Section - ADDED Export -->
-                        <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px;">
-                            <div class="history-section">
-                                <div class="history-header">
-                                    <span class="history-title">📥 RECEIVED HISTORY</span>
-                                    <div>
-                                        <button class="export-btn" onclick="exportHistory('error')">💾 SAVE</button>
-                                        <button class="btn btn-danger" onclick="clearErrorHistory()"
-                                            style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                            CLEAR</button>
-                                    </div>
-                                </div>
-                                <div class="history-list" id="errorHistory">
-                                    <div style="color: #8899aa; text-align: center; padding: 20px;">No error history
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Error Panels Layout -->
+                        <div id="errorPanels" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         </div>
                     </div>
                 </div>
@@ -1936,6 +1824,15 @@
             setupEventListeners();
             updateAllHistoryDisplays();
             initFirebase();
+
+            // Handle iOS background disconnections
+            document.addEventListener('visibilitychange', () => {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (!document.hidden && isIOS && isConnected && gattServer && !gattServer.connected) {
+                    alert("iOS paused Bluetooth in the background to save battery. The connection was lost. Please rescan and reconnect.");
+                    disconnect();
+                }
+            });
         });
 
         function initializeMotorPanels() {
@@ -2886,11 +2783,9 @@
         }
 
         function sendAutotuneCustomCommand() {
-            const jsonText = document.getElementById('autotuneJsonInput').value.trim();
-            if (!jsonText) return;
-
             try {
-                const jsonData = JSON.parse(jsonText);
+                const jsonData = { "cmd": "autotune" };
+                const jsonText = JSON.stringify(jsonData);
 
                 document.getElementById('jsonInput').value = jsonText;
                 sendJSON();
@@ -2905,7 +2800,7 @@
                     document.getElementById('autotuneSendStatus').textContent = '';
                 }, 3000);
             } catch (e) {
-                document.getElementById('autotuneSendStatus').textContent = `❌ JSON Error: ${e.message}`;
+                document.getElementById('autotuneSendStatus').textContent = `❌ Error: ${e.message}`;
                 document.getElementById('autotuneSendStatus').style.color = '#ff4444';
             }
         }
@@ -2914,16 +2809,10 @@
             stopAutotuneTimer();
 
             if (data.status === 'timeout') {
-                document.getElementById('autotuneStatus').textContent = '❌ Autotune Timeout';
-                document.getElementById('autotuneStatus').style.color = '#ff4444';
-
                 document.getElementById('autotuneResultStatus').textContent = 'UNSUCCESSFUL';
                 document.getElementById('autotuneResultStatus').style.color = '#ff4444';
             } else {
-                document.getElementById('autotuneStatus').textContent = '✓ Offset Angle Received';
-                document.getElementById('autotuneStatus').style.color = '#00ffaa';
-
-                document.getElementById('autotuneResultStatus').textContent = 'SUCCESSFUL';
+                document.getElementById('autotuneResultStatus').textContent = 'DONE';
                 document.getElementById('autotuneResultStatus').style.color = '#00ffaa';
 
                 if (data.offset_angle !== undefined) {
@@ -2939,11 +2828,6 @@
                     circle.style.background = `conic-gradient(#00ffaa ${safeAngle}deg, #0a0f1e ${safeAngle}deg)`;
                 }
             }
-
-            setTimeout(() => {
-                document.getElementById('autotuneStatus').textContent = 'Waiting...';
-                document.getElementById('autotuneStatus').style.color = '#ffaa00';
-            }, 3000);
         }
 
         function addToAutotuneSentHistory(data) {
@@ -3033,18 +2917,15 @@
 
         // ==================== SOFTWARE UPDATE FUNCTIONS ====================
         function sendSwUpdateRequest() {
-            const jsonText = document.getElementById('swUpdateJsonInput').value.trim();
-            if (!jsonText) return;
-
             try {
-                const jsonData = JSON.parse(jsonText);
+                const jsonData = { "cmd": "sw_update_req" };
+                const jsonText = JSON.stringify(jsonData);
+
                 document.getElementById('jsonInput').value = jsonText;
                 sendJSON();
 
                 document.getElementById('swUpdateSendStatus').textContent = '✓ SW Update Request Sent';
                 document.getElementById('swUpdateSendStatus').style.color = '#00ffaa';
-
-                addToSwUpdateSentHistory(jsonData);
 
                 setTimeout(() => {
                     document.getElementById('swUpdateSendStatus').textContent = '';
@@ -3095,6 +2976,8 @@
             reader.readAsText(file);
         }
 
+        let pendingByteReq = null;
+
         function handleByteRequest(data) {
             if (!hexFileText) {
                 console.warn("Device requested bytes, but no HEX file loaded.");
@@ -3111,21 +2994,33 @@
 
             const chunk = hexFileText.substring(hexFileOffset, hexFileOffset + length);
 
-            const response = {
+            pendingByteReq = {
                 cmd: "sw_data",
                 offset: hexFileOffset,
-                data: Array.from(chunk).map(c => c.charCodeAt(0)) // Sending as array of byte values to match JSON standard
+                data: Array.from(chunk).map(c => c.charCodeAt(0)),
+                lengthRequested: length,
+                chunkString: chunk
             };
 
-            // Alternatively, sending exactly literal characters:
-            // data: chunk
+            document.getElementById('pendingByteRequest').textContent = `${length} BYTES`;
+            document.getElementById('pendingByteRequest').style.color = '#00ffaa';
 
-            hexFileOffset += chunk.length;
+            const btn = document.getElementById('authorizeByteBtn');
+            btn.disabled = false;
+            btn.className = 'btn btn-success';
+            btn.textContent = '📤 SEND REQUESTED BYTES VIA BLE';
+        }
 
-            // Alternatively, sending exactly literal characters:
-            // data: chunk
+        function authorizeByteSend() {
+            if (!pendingByteReq) return;
 
-            hexFileOffset += chunk.length;
+            const response = {
+                cmd: pendingByteReq.cmd,
+                offset: pendingByteReq.offset,
+                data: pendingByteReq.data
+            };
+
+            hexFileOffset += pendingByteReq.lengthRequested;
 
             const responseText = JSON.stringify(response);
             document.getElementById('jsonInput').value = responseText;
@@ -3160,92 +3055,21 @@
                 document.getElementById('swUpdateFileStatus').textContent = 'UPDATE COMPLETE';
                 document.getElementById('swUpdateFileStatus').style.color = '#00ffaa';
             } else {
-                document.getElementById('swUpdateFileStatus').textContent = 'SENDING DATA...';
+                document.getElementById('swUpdateFileStatus').textContent = 'WAITING FOR NEXT REQUEST...';
                 document.getElementById('swUpdateFileStatus').style.color = '#ffaa00';
             }
+
+            // Lock Button again until next request
+            pendingByteReq = null;
+            document.getElementById('pendingByteRequest').textContent = 'WAITING...';
+            document.getElementById('pendingByteRequest').style.color = '#ffaa00';
+            const btn = document.getElementById('authorizeByteBtn');
+            btn.disabled = true;
+            btn.className = 'btn btn-primary';
+            btn.textContent = '📤 WAITING FOR REQUEST...';
         }
 
-        function addToSwUpdateSentHistory(data) {
-            const timestamp = new Date().toLocaleTimeString();
-            const preview = JSON.stringify(data).substring(0, 50) + (JSON.stringify(data).length > 50 ? '...' : '');
-            const entry = { time: timestamp, data: data, preview: preview };
-
-            saveToFirebase('swupdate_sent_data', entry);
-
-            if (!firebaseReady) {
-                swUpdateSentHistory.unshift(entry);
-                if (swUpdateSentHistory.length > maxHistory) swUpdateSentHistory.pop();
-                updateSwUpdateSentHistoryDisplay();
-            }
-        }
-
-        function addToSwUpdateReceivedHistory(data) {
-            const timestamp = new Date().toLocaleTimeString();
-            const preview = JSON.stringify(data).substring(0, 50) + (JSON.stringify(data).length > 50 ? '...' : '');
-            const entry = { time: timestamp, data: data, preview: preview };
-
-            saveToFirebase('swupdate_received_data', entry);
-
-            if (!firebaseReady) {
-                swUpdateReceivedHistory.unshift(entry);
-                if (swUpdateReceivedHistory.length > maxHistory) swUpdateReceivedHistory.pop();
-                updateSwUpdateReceivedHistoryDisplay();
-            }
-        }
-
-        function updateSwUpdateSentHistoryDisplay() {
-            const historyDiv = document.getElementById('swUpdateSentHistory');
-            if (!historyDiv) return;
-
-            historyDiv.innerHTML = '';
-            if (swUpdateSentHistory.length === 0) {
-                historyDiv.innerHTML = '<div style="color: #8899aa; text-align: center; padding: 20px;">No sent history</div>';
-                return;
-            }
-
-            swUpdateSentHistory.forEach((item) => {
-                const div = document.createElement('div');
-                div.className = 'history-item sent';
-                div.innerHTML = `<span class="history-timestamp">[${item.time}]</span> ${item.preview}`;
-                div.addEventListener('click', () => showHistoryPopup(item, 'SW Update Sent'));
-                historyDiv.appendChild(div);
-            });
-        }
-
-        function updateSwUpdateReceivedHistoryDisplay() {
-            const historyDiv = document.getElementById('swUpdateReceivedHistory');
-            if (!historyDiv) return;
-
-            historyDiv.innerHTML = '';
-            if (swUpdateReceivedHistory.length === 0) {
-                historyDiv.innerHTML = '<div style="color: #8899aa; text-align: center; padding: 20px;">No received history</div>';
-                return;
-            }
-
-            swUpdateReceivedHistory.forEach((item) => {
-                const div = document.createElement('div');
-                div.className = 'history-item received';
-                div.innerHTML = `<span class="history-timestamp">[${item.time}]</span> ${item.preview}`;
-                div.addEventListener('click', () => showHistoryPopup(item, 'SW Update Received'));
-                historyDiv.appendChild(div);
-            });
-        }
-
-        function clearSwUpdateSentHistory() {
-            if (confirm('Clear SW update sent history?')) {
-                swUpdateSentHistory = [];
-                updateSwUpdateSentHistoryDisplay();
-                if (firebaseReady) firebaseDB.ref('swupdate_sent_data').remove();
-            }
-        }
-
-        function clearSwUpdateReceivedHistory() {
-            if (confirm('Clear SW update received history?')) {
-                swUpdateReceivedHistory = [];
-                updateSwUpdateReceivedHistoryDisplay();
-                if (firebaseReady) firebaseDB.ref('swupdate_received_data').remove();
-            }
-        }
+        // SW History arrays retained if backend data pushes ever query them but safely nullified from UI
 
         // ==================== MOTOR STATUS UPDATE ====================
         function updateMotorStatus(data) {
