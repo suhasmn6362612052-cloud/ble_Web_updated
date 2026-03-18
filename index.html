@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DCU Bluetooth JSON Dashboard - COMPLETE WITH ALL FEATURES</title>
+    <title>DCU BLUETOOTH DCU - DASHBOARD </title>
     <style>
         /* KEEP ALL EXISTING CSS STYLES EXACTLY AS BEFORE */
         * {
@@ -189,6 +189,8 @@
             cursor: pointer;
             font-size: 14px;
             transition: all 0.3s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .btn-primary {
@@ -388,8 +390,10 @@
         .tab-content {
             padding: 15px;
             background: #151f2f;
-            max-height: calc(100vh - 200px);
+            /* Changed to relative sizing for iOS compatibility */
+            height: 100%;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .status-bar {
@@ -420,6 +424,9 @@
             padding: 10px;
             border-radius: 3px;
             margin: 10px 0;
+            -webkit-appearance: none;
+            appearance: none;
+            resize: vertical;
         }
 
         .grid-panel {
@@ -427,6 +434,7 @@
             border-radius: 5px;
             padding: 15px;
             margin-bottom: 15px;
+            overflow-x: hidden;
         }
 
         .grid-title {
@@ -440,19 +448,34 @@
 
         .grid-4 {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 10px;
         }
 
         .grid-3 {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
             gap: 10px;
+        }
+
+        .status-flags-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+            background: #2a3a4a;
+            /* Acts as border color between cells */
+            border: 1px solid #2a3a4a;
+        }
+
+        @media (max-width: 900px) {
+            .status-flags-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .grid-2 {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 10px;
         }
 
@@ -484,18 +507,22 @@
         .flag-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px;
+            align-items: center;
+            padding: 8px 12px;
             background: #0a0f1e;
-            margin-bottom: 5px;
-            border-radius: 3px;
+            border: none;
+            border-radius: 0;
+            margin: 0;
         }
 
         .flag-name {
             color: #8899aa;
+            text-align: left;
         }
 
         .flag-value {
             font-weight: bold;
+            text-align: right;
         }
 
         .flag-value.on {
@@ -1019,15 +1046,26 @@
                 <span class="bar"></span>
             </div>
         </button>
-        <h1>BLUETOOTH JSON COMBO - COMPLETE FEATURES</h1>
-        <div style="display: flex; align-items: center;">
-            <div class="firebase-status" id="firebaseStatusBar">
-                <span class="firebase-dot" id="firebaseDot"></span>
-                <span id="firebaseStatusText">Firebase: Connecting...</span>
+        <h1>BLUETOOTH DCU - DASHBOARD</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="status-indicator" style="display: flex; align-items: center; gap: 5px;">
+                <span class="bt-indicator" id="canIndicator" style="color: #ff4444;">●</span>
+                <span id="canStatusText" style="color: #8899aa; font-family: monospace; font-size: 11px;">CAN:
+                    Offline</span>
             </div>
-            <div class="bt-status">
+            <div class="status-indicator" style="display: flex; align-items: center; gap: 5px;">
+                <span class="bt-indicator" id="rssiIndicator" style="color: #8899aa;">●</span>
+                <span id="rssiText" style="color: #8899aa; font-family: monospace; font-size: 11px;">Range: N/A</span>
+            </div>
+            <div class="firebase-status" id="firebaseStatusBar" style="display: flex; align-items: center; gap: 5px;">
+                <span class="firebase-dot" id="firebaseDot"></span>
+                <span id="firebaseStatusText" style="font-family: monospace; font-size: 11px;">Firebase:
+                    Connecting...</span>
+            </div>
+            <div class="bt-status" style="display: flex; align-items: center; gap: 5px;">
                 <span class="bt-indicator" id="btIndicator">●</span>
-                <span class="bt-text" id="btText">Checking Bluetooth...</span>
+                <span class="bt-text" id="btText" style="font-family: monospace; font-size: 11px;">Checking
+                    Bluetooth...</span>
             </div>
         </div>
     </div>
@@ -1045,11 +1083,11 @@
                 <div class="panel-title">🔍 DEVICE SCANNING</div>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <button class="btn btn-primary" id="scanBtn" style="flex: 1;">🔍 SCAN FOR DEVICES</button>
-                    <button class="btn btn-danger" id="stopScanBtn" disabled>⏹️ STOP SCAN</button>
                 </div>
 
                 <div class="device-list" id="deviceList">
-                    <div style="color: #8899aa; text-align: center; padding: 20px;">Click SCAN to find devices</div>
+                    <div style="color: #8899aa; text-align: center; padding: 20px;">Loading paired devices from
+                        Firebase...</div>
                 </div>
             </div>
 
@@ -1073,56 +1111,31 @@
                 </div>
             </div>
 
-            <!-- Characteristics - MODIFIED: Manual UUID entry for any device -->
-            <div class="connection-panel">
+            <!-- Characteristics -->
+            <div class="connection-panel" id="characteristicsPanel" style="display: block;">
                 <div class="panel-title">📋 CHARACTERISTICS</div>
 
-                <div class="char-list" id="charList">
-                    <div style="color: #8899aa; text-align: center;">Connect to see characteristics</div>
-                </div>
+                <select id="charSelect" class="uuid-entry" style="width: 100%; margin-bottom: 10px;">
+                    <option value="">Connect to see characteristics</option>
+                </select>
 
-                <div style="display: flex; gap: 10px; margin: 10px 0;">
-                    <button class="btn btn-primary" id="setWriteBtn" style="flex: 1;" disabled>✏️ SET AS WRITE</button>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-primary" id="setWriteBtn" style="flex: 1;" disabled>🖊️ SET AS WRITE</button>
                     <button class="btn btn-primary" id="setNotifyBtn" style="flex: 1;" disabled>🔔 SET AS
                         NOTIFY</button>
                 </div>
 
-                <div style="margin: 10px 0;">
-                    <span style="color: #8899aa;">Write: </span>
-                    <span id="writeCharLabel" style="color: #ffaa00;">Not set</span>
+                <div class="status-row">
+                    <span style="color: #8899aa;">Write:</span>
+                    <span id="writeCharText" style="color: #ffaa00; font-size: 11px;">Not set</span>
                 </div>
-                <div style="margin: 10px 0;">
-                    <span style="color: #8899aa;">Notify: </span>
-                    <span id="notifyCharLabel" style="color: #ffaa00;">Not set</span>
-                </div>
-
-                <div style="margin-top: 15px;">
-                    <div style="color: #8899aa; margin-bottom: 5px;">Manual UUID Entry:</div>
-                    <input type="text" class="uuid-entry" id="serviceUuidEntry"
-                        placeholder="Service UUID (e.g., 0000ffe0-0000-1000-8000-00805f9b34fb)">
-                    <input type="text" class="uuid-entry" id="charUuidEntry"
-                        placeholder="Characteristic UUID (e.g., 0000ffe1-0000-1000-8000-00805f9b34fb)">
-
-                    <div style="display: flex; gap: 5px; margin: 10px 0;">
-                        <button class="btn btn-primary" id="setManualUuidBtn" style="flex: 1;"
-                            onclick="setManualUUID()">🔧 SET MANUAL UUID</button>
-                        <button class="btn btn-primary" id="discoverServicesBtn" style="flex: 1;"
-                            onclick="discoverServices()" disabled>🔄 DISCOVER</button>
-                    </div>
-
-                    <div class="preset-buttons">
-                        <button class="preset-btn"
-                            onclick="setPresetUUID('0000ffe0-0000-1000-8000-00805f9b34fb', '0000ffe1-0000-1000-8000-00805f9b34fb')">UART
-                            (FFE0/FFE1)</button>
-                        <button class="preset-btn"
-                            onclick="setPresetUUID('6e400001-b5a3-f393-e0a9-e50e24dcca9e', '6e400002-b5a3-f393-e0a9-e50e24dcca9e')">Nordic
-                            TX</button>
-                        <button class="preset-btn"
-                            onclick="setPresetUUID('6e400001-b5a3-f393-e0a9-e50e24dcca9e', '6e400003-b5a3-f393-e0a9-e50e24dcca9e')">Nordic
-                            RX</button>
-                    </div>
+                <div class="status-row" style="margin-bottom: 0;">
+                    <span style="color: #8899aa;">Notify:</span>
+                    <span id="notifyCharText" style="color: #ffaa00; font-size: 11px;">Not set</span>
                 </div>
             </div>
+
+
         </div>
 
         <!-- Right Panel - Tabs -->
@@ -1132,7 +1145,7 @@
                     <button class="tab-btn active" onclick="switchTab('send')">📤 SEND JSON</button>
                     <button class="tab-btn" onclick="switchTab('receive')">📥 RECEIVE JSON</button>
                     <button class="tab-btn" onclick="switchTab('motor')">🚗 MOTOR STATUS</button>
-                    <button class="tab-btn" onclick="switchTab('fetch')">⚙️ FETCH & WRITE</button>
+                    <button class="tab-btn" onclick="switchTab('fetch')">⚙️ CONFIG</button>
                     <button class="tab-btn" onclick="switchTab('autotune')">🎯 AUTO TUNE</button>
                     <button class="tab-btn" onclick="switchTab('swupdate')">🔄 SW UPDATE</button>
                     <button class="tab-btn" onclick="switchTab('error')">⚠️ ERROR STATUS</button>
@@ -1228,17 +1241,12 @@
                                     </div>
 
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                                        <div id="receiveStatus" style="color: #ff4444;">Status: Not ready - set notify
-                                            characteristic</div>
-                                        <div>
-                                            <button class="btn btn-success" id="startReceiveBtn" disabled>🔔
-                                                START</button>
-                                            <button class="btn btn-danger" id="stopReceiveBtn" disabled>🔕 STOP</button>
-                                        </div>
+                                        <div id="receiveStatus" style="color: #ffaa00;">Status: Waiting for
+                                            connection...</div>
                                     </div>
 
                                     <textarea id="receivedJson" class="json-textarea" readonly
-                                        style="height: 300px;"></textarea>
+                                        style="height: 500px; font-family: monospace;"></textarea>
 
                                     <div style="display: flex; gap: 20px; margin: 15px 0;">
                                         <span style="color: #00ffaa;">Packets: <span
@@ -1269,7 +1277,8 @@
                                                 CLEAR</button>
                                         </div>
                                     </div>
-                                    <div class="history-list" id="receivedHistory">
+                                    <div class="history-list" id="receivedHistory"
+                                        style="height: 500px; overflow-y: auto;">
                                         <div style="color: #8899aa; text-align: center; padding: 20px;">No received
                                             history</div>
                                     </div>
@@ -1296,42 +1305,6 @@
 
                     <!-- Motor Status Tab - ADDED scroll control -->
                     <div id="motorTab" style="display: none;">
-                        <!-- Message Status -->
-                        <div class="grid-panel">
-                            <div class="grid-title">📨 MESSAGE STATUS</div>
-                            <div class="scroll-control">
-                                <div class="scroll-toggle on" id="motorScrollToggle" onclick="toggleScroll('motor')">
-                                </div>
-                                <span class="scroll-label" id="motorScrollLabel">Auto-scroll ON</span>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                <div class="status-row">
-                                    <span class="status-led" id="msgIndicator">●</span>
-                                    <span id="msgStatus">Waiting for status messages</span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Messages:</span>
-                                    <span style="color: #00ffaa; font-size: 18px; font-weight: bold;"
-                                        id="msgCount">0</span>
-                                </div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 0;">
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Type:</span>
-                                    <span style="color: #00ffaa;" id="lastMsgType">---</span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">Time:</span>
-                                    <span style="color: #ffaa00;" id="lastMsgTime"></span>
-                                </div>
-                                <div class="status-row">
-                                    <span style="color: #8899aa;">CMD:</span>
-                                    <span style="color: #ffaa00;" id="lastCmd">---</span>
-                                </div>
-                            </div>
-                            <textarea id="msgPreview" class="json-textarea" readonly style="height: 60px;"></textarea>
-                        </div>
-
                         <!-- Critical Values -->
                         <div class="grid-panel">
                             <div class="grid-title">⚡ CRITICAL VALUES</div>
@@ -1383,46 +1356,11 @@
                         </div>
 
                         <!-- Status Flags -->
-                        <div class="grid-panel">
+                        <div class="grid-panel" style="padding: 10px;">
                             <div class="grid-title">🚦 STATUS FLAGS</div>
-                            <div class="grid-4" id="statusFlags"></div>
+                            <div class="status-flags-grid" id="statusFlags"></div>
                         </div>
 
-                        <!-- Motor Tab History Section - ADDED Export buttons -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                            <div class="history-section">
-                                <div class="history-header">
-                                    <span class="history-title">📤 SENT HISTORY</span>
-                                    <div>
-                                        <button class="export-btn" onclick="exportHistory('motorSent')">💾 SAVE</button>
-                                        <button class="btn btn-danger" onclick="clearMotorSentHistory()"
-                                            style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                            CLEAR</button>
-                                    </div>
-                                </div>
-                                <div class="history-list" id="motorSentHistory">
-                                    <div style="color: #8899aa; text-align: center; padding: 20px;">No sent history
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="history-section">
-                                <div class="history-header">
-                                    <span class="history-title">📥 RECEIVED HISTORY</span>
-                                    <div>
-                                        <button class="export-btn" onclick="exportHistory('motorReceived')">💾
-                                            SAVE</button>
-                                        <button class="btn btn-danger" onclick="clearMotorReceivedHistory()"
-                                            style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                            CLEAR</button>
-                                    </div>
-                                </div>
-                                <div class="history-list" id="motorReceivedHistory">
-                                    <div style="color: #8899aa; text-align: center; padding: 20px;">No received history
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Fetch & Write Tab - ADDED Export buttons -->
@@ -1432,100 +1370,33 @@
                                 <!-- Fetch Section -->
                                 <div class="grid-panel">
                                     <div class="grid-title">🔄 FETCH CONFIGURATION</div>
-                                    <div style="background: #1e2a3a; padding: 15px; border-radius: 5px;">
-                                        <div
-                                            style="background: #0a0f1e; padding: 10px; text-align: center; margin-bottom: 15px;">
-                                            <code style="color: #ffaa00;">{"cmd": "fetch"}</code>
-                                        </div>
-                                        <button class="btn btn-warning" id="fetchBtn"
-                                            style="width: 100%; padding: 15px;">📡 SEND FETCH COMMAND</button>
-                                        <div id="fetchStatus" style="color: #8899aa; margin-top: 10px;"></div>
+                                    <button class="btn btn-warning" id="fetchBtn"
+                                        style="width: 100%; padding: 15px; font-size: 16px;">📡 SEND FETCH
+                                        COMMAND</button>
+                                    <div id="fetchStatus" style="color: #8899aa; margin-top: 10px; text-align: center;">
                                     </div>
                                 </div>
 
                                 <!-- All Write Parameters -->
-                                <div class="grid-panel">
+                                <div class="grid-panel" style="flex: 1; display: flex; flex-direction: column;">
                                     <div class="grid-title">✏️ ALL WRITE PARAMETERS</div>
-                                    <div id="writeParameters" style="max-height: 400px; overflow-y: auto;"></div>
+                                    <div id="writeParameters" style="flex: 1; overflow-y: auto; max-height: 600px;">
+                                    </div>
                                     <button class="btn btn-warning" id="sendAllBtn"
                                         style="width: 100%; margin-top: 15px; padding: 15px;">📤 SEND ALL
                                         PARAMETERS</button>
-                                </div>
-
-                                <!-- Manual JSON Send -->
-                                <div class="grid-panel">
-                                    <div class="grid-title">📝 MANUAL JSON SEND</div>
-                                    <textarea id="manualJson" class="json-textarea"
-                                        placeholder='{"cmd": "write", "ac_current_max_rms_a": 120.5}'></textarea>
-                                    <div style="display: flex; gap: 10px;">
-                                        <button class="btn btn-primary" onclick="loadExampleWrite()">📋 Load
-                                            Example</button>
-                                        <button class="btn btn-success" id="sendManualBtn" style="margin-left: auto;">📤
-                                            Send JSON</button>
-                                    </div>
-                                    <div id="manualStatus" style="color: #8899aa; margin-top: 10px;"></div>
-                                </div>
-
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📤 SENT HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('fetchSent')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearFetchSentHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
-                                    </div>
-                                    <div class="history-list" id="fetchSentHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No sent history
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
                             <div class="fetch-right">
                                 <!-- Read Parameter Status -->
-                                <div class="grid-panel">
+                                <div class="grid-panel" style="flex: 1; display: flex; flex-direction: column;">
                                     <div class="grid-title">📊 READ PARAMETER STATUS</div>
-                                    <div id="readParameters" style="max-height: 400px; overflow-y: auto;"></div>
+                                    <div id="readParameters" style="flex: 1; overflow-y: auto; max-height: 700px;">
+                                    </div>
                                     <button class="btn btn-primary" id="refreshDisplayBtn"
-                                        style="width: 100%; margin-top: 15px;">🔄 REFRESH DISPLAY</button>
-                                </div>
-
-                                <!-- CAN Message Status -->
-                                <div class="grid-panel">
-                                    <div class="grid-title">📨 CAN MESSAGE STATUS</div>
-                                    <div class="status-row">
-                                        <span class="status-led" id="canIndicator">●</span>
-                                        <span id="canStatus">Waiting for write messages</span>
-                                        <span style="margin-left: auto;" id="canCount">Count: 0</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                                        <span style="color: #8899aa;">Last Write:</span>
-                                        <span id="lastCanTime" style="color: #ffaa00;">---</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-                                        <span style="color: #8899aa;">Last Type:</span>
-                                        <span id="lastCanType" style="color: #00ffaa;">---</span>
-                                    </div>
-                                </div>
-
-                                <div class="history-section">
-                                    <div class="history-header">
-                                        <span class="history-title">📥 RECEIVED HISTORY</span>
-                                        <div>
-                                            <button class="export-btn" onclick="exportHistory('fetchReceived')">💾
-                                                SAVE</button>
-                                            <button class="btn btn-danger" onclick="clearFetchReceivedHistory()"
-                                                style="padding: 3px 10px; font-size: 11px; margin-left: 5px;">🗑️
-                                                CLEAR</button>
-                                        </div>
-                                    </div>
-                                    <div class="history-list" id="fetchReceivedHistory">
-                                        <div style="color: #8899aa; text-align: center; padding: 20px;">No received
-                                            history</div>
-                                    </div>
+                                        style="width: 100%; margin-top: 15px; padding: 15px;">🔄 REFRESH
+                                        DISPLAY</button>
                                 </div>
                             </div>
                         </div>
@@ -1953,70 +1824,6 @@
 
         // Setup real-time listeners to sync data across all users
         function setupFirebaseListeners() {
-            // Listen for received data (last 50)
-            firebaseDB.ref('received_data').orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
-                receivedHistory = [];
-                const entries = [];
-                snapshot.forEach((child) => {
-                    const val = child.val();
-                    entries.push({
-                        time: val.time || new Date(val.timestamp).toLocaleTimeString(),
-                        data: val.data,
-                        preview: val.preview || JSON.stringify(val.data).substring(0, 50),
-                        type: 'received',
-                        key: child.key
-                    });
-                });
-                receivedHistory = entries.reverse();
-                updateReceivedHistoryDisplay();
-
-                // Also update motor/fetch received from the same data
-                motorReceivedHistory = receivedHistory.slice();
-                updateMotorReceivedHistoryDisplay();
-                fetchReceivedHistory = receivedHistory.slice();
-                updateFetchReceivedHistoryDisplay();
-            });
-
-            // Listen for sent data (last 50)
-            firebaseDB.ref('sent_data').orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
-                sentHistory = [];
-                const entries = [];
-                snapshot.forEach((child) => {
-                    const val = child.val();
-                    entries.push({
-                        time: val.time || new Date(val.timestamp).toLocaleTimeString(),
-                        data: val.data,
-                        preview: val.preview || JSON.stringify(val.data).substring(0, 50),
-                        type: 'sent',
-                        key: child.key
-                    });
-                });
-                sentHistory = entries.reverse();
-                updateSentHistoryDisplay();
-
-                // Also update motor/fetch sent from the same data
-                motorSentHistory = sentHistory.slice();
-                updateMotorSentHistoryDisplay();
-                fetchSentHistory = sentHistory.slice();
-                updateFetchSentHistoryDisplay();
-            });
-
-            // Listen for error data (last 50)
-            firebaseDB.ref('error_data').orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
-                errorHistory = [];
-                const entries = [];
-                snapshot.forEach((child) => {
-                    const val = child.val();
-                    entries.push({
-                        time: val.time || new Date(val.timestamp).toLocaleTimeString(),
-                        data: val.data,
-                        preview: val.preview || JSON.stringify(val.data).substring(0, 50),
-                        key: child.key
-                    });
-                });
-                errorHistory = entries.reverse();
-                updateErrorHistoryDisplay();
-            });
 
             // Listen for autotune_received data (last 50)
             firebaseDB.ref('autotune_received_data').orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
@@ -2367,14 +2174,9 @@
 
         function setupEventListeners() {
             document.getElementById('scanBtn').addEventListener('click', startScan);
-            document.getElementById('stopScanBtn').addEventListener('click', stopScan);
             document.getElementById('connectBtn').addEventListener('click', connect);
             document.getElementById('disconnectBtn').addEventListener('click', disconnect);
-            document.getElementById('setWriteBtn').addEventListener('click', setWriteCharacteristic);
-            document.getElementById('setNotifyBtn').addEventListener('click', setNotifyCharacteristic);
             document.getElementById('sendBtn').addEventListener('click', sendJSON);
-            document.getElementById('startReceiveBtn').addEventListener('click', startReceiving);
-            document.getElementById('stopReceiveBtn').addEventListener('click', stopReceiving);
             document.getElementById('downloadBtn').addEventListener('click', downloadJSON);
             document.getElementById('copyBtn').addEventListener('click', copyJSON);
             document.getElementById('clearReceivedBtn').addEventListener('click', clearReceived);
@@ -2382,6 +2184,9 @@
             document.getElementById('sendAllBtn').addEventListener('click', sendAllWrites);
             document.getElementById('sendManualBtn').addEventListener('click', sendManualJSON);
             document.getElementById('refreshDisplayBtn').addEventListener('click', refreshDisplay);
+
+            document.getElementById('setWriteBtn').addEventListener('click', setWriteCharacteristic);
+            document.getElementById('setNotifyBtn').addEventListener('click', setNotifyCharacteristic);
 
             document.getElementById('fileInput').addEventListener('change', handleFileSelect);
         }
@@ -2391,8 +2196,6 @@
             try {
                 isScanning = true;
                 document.getElementById('scanBtn').disabled = true;
-                document.getElementById('stopScanBtn').disabled = false;
-                document.getElementById('deviceList').innerHTML = '<div style="color: #8899aa; text-align: center;">Scanning...</div>';
 
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
@@ -2405,73 +2208,91 @@
                     ]
                 });
 
-                addDeviceToList(device);
+                // Save to Firebase
+                if (firebaseReady) {
+                    firebaseDB.ref('paired_devices/' + device.id).set({
+                        id: device.id,
+                        name: device.name || 'Unknown Device',
+                        added_at: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
 
-            } catch (error) {
-                console.error('Scan error:', error);
-                document.getElementById('deviceList').innerHTML = `<div style="color: #ff4444; text-align: center;">Scan error: ${error.message}</div>`;
-            } finally {
-                stopScan();
-            }
-        }
-
-        function stopScan() {
-            isScanning = false;
-            document.getElementById('scanBtn').disabled = false;
-            document.getElementById('stopScanBtn').disabled = true;
-        }
-
-        function addDeviceToList(device) {
-            const deviceList = document.getElementById('deviceList');
-            deviceList.innerHTML = '';
-
-            const div = document.createElement('div');
-            div.className = 'device-item';
-            div.innerHTML = `
-                <div class="device-name">${device.name || 'Unknown Device'}</div>
-                <div class="device-address">${device.id}</div>
-            `;
-
-            div.addEventListener('click', () => {
-                document.querySelectorAll('.device-item').forEach(el => el.classList.remove('selected'));
-                div.classList.add('selected');
+                // Select it immediately locally just in case
                 bluetoothDevice = device;
                 document.getElementById('deviceInfo').textContent = `${device.name || 'Unknown'} (${device.id.substring(0, 8)}...)`;
                 document.getElementById('connectBtn').disabled = false;
-                document.getElementById('discoverServicesBtn').disabled = false;
-            });
 
-            deviceList.appendChild(div);
-        }
-
-        // ==================== MANUAL UUID SETUP ====================
-        function setManualUUID() {
-            const serviceUuid = document.getElementById('serviceUuidEntry').value.trim();
-            const charUuid = document.getElementById('charUuidEntry').value.trim();
-
-            if (!serviceUuid || !charUuid) {
-                alert('Please enter both Service UUID and Characteristic UUID');
-                return;
-            }
-
-            // Create a fake characteristic object with manual UUID
-            const manualChar = {
-                uuid: charUuid,
-                serviceUuid: serviceUuid,
-                properties: {
-                    write: true,
-                    writeWithoutResponse: true,
-                    notify: true,
-                    read: true
+            } catch (error) {
+                console.error('Scan error:', error);
+                if (!firebaseReady) {
+                    document.getElementById('deviceList').innerHTML = `<div style="color: #ff4444; text-align: center;">Scan error: ${error.message}</div>`;
                 }
-            };
-
-            window.selectedCharacteristic = manualChar;
-            document.getElementById('setWriteBtn').disabled = false;
-            document.getElementById('setNotifyBtn').disabled = false;
-
-            addToLog(`Manual UUID set: Service=${serviceUuid}, Char=${charUuid}`);
+            } finally {
+                isScanning = false;
+                document.getElementById('scanBtn').disabled = false;
+            }
         }
+
+        // Add Firebase Listener for Paired Devices
+        function setupFirebaseDeviceListener() {
+            if (!firebaseReady) return;
+
+            firebaseDB.ref('paired_devices').on('value', (snapshot) => {
+                const deviceList = document.getElementById('deviceList');
+                deviceList.innerHTML = '';
+
+                const devices = snapshot.val();
+                if (!devices) {
+                    deviceList.innerHTML = '<div style="color: #8899aa; text-align: center; padding: 20px;">No paired devices found in Firebase. Click SCAN.</div>';
+                    return;
+                }
+
+                Object.values(devices).forEach(dev => {
+                    const div = document.createElement('div');
+                    div.className = 'device-item';
+                    div.innerHTML = `
+                        <div class="device-name">${dev.name}</div>
+                        <div class="device-address">${dev.id}</div>
+                    `;
+
+                    div.addEventListener('click', async () => {
+                        document.querySelectorAll('.device-item').forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+
+                        try {
+                            if (!navigator.bluetooth.getDevices) {
+                                throw new Error("Your browser version does not support the Web Bluetooth getDevices() API.");
+                            }
+
+                            // Try to get the permitted device from the browser's list of connected/permitted devices
+                            // Note: This relies on the browser having already permitted the device.
+                            const permittedDevices = await navigator.bluetooth.getDevices();
+                            const matchedDevice = permittedDevices.find(d => d.id === dev.id);
+
+                            if (matchedDevice) {
+                                bluetoothDevice = matchedDevice;
+                                document.getElementById('deviceInfo').textContent = `${dev.name} (${dev.id.substring(0, 8)}...)`;
+                                document.getElementById('connectBtn').disabled = false;
+                            } else {
+                                alert("The browser doesn't have active permissions for this saved device. Please click the main 'SCAN FOR DEVICES' button to re-authorize.");
+                            }
+                        } catch (e) {
+                            console.error("Error getting devices:", e);
+                            alert("Browser Security/Compatibility Blocked Access: Your browser prevents automatically reconnecting to devices saved from a previous session or different PC. \n\nPlease click the 'SCAN FOR DEVICES' button at the top to connect manually.");
+                        }
+                    });
+
+                    deviceList.appendChild(div);
+                });
+            });
+        }
+
+        // Setup listener when Firebase is ready
+        const originalInitFirebase = initFirebase;
+        initFirebase = function () {
+            originalInitFirebase();
+            setTimeout(setupFirebaseDeviceListener, 1000);
+        };
 
         async function discoverServices() {
             if (!gattServer || !gattServer.connected) {
@@ -2481,57 +2302,153 @@
 
             try {
                 const services = await gattServer.getPrimaryServices();
-                document.getElementById('charList').innerHTML = '';
+
+                writeCharacteristic = null;
+                notifyCharacteristic = null;
+                availableCharacteristics = [];
+
+                const charSelect = document.getElementById('charSelect');
+                charSelect.innerHTML = '<option value="">Select a characteristic</option>';
+
+                const knownWriteUUIDs = [
+                    '0000ffe1-0000-1000-8000-00805f9b34fb', // HM-10
+                    '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Nordic TX
+                    '0000fff2-0000-1000-8000-00805f9b34fb', // Common serial
+                    'd973f2e2-b19e-11e2-9e96-0800200c9a66'  // BL652
+                ];
+
+                const knownNotifyUUIDs = [
+                    '0000ffe1-0000-1000-8000-00805f9b34fb', // HM-10
+                    '6e400003-b5a3-f393-e0a9-e50e24dcca9e', // Nordic RX
+                    '0000fff1-0000-1000-8000-00805f9b34fb', // Common serial
+                    'd973f2e1-b19e-11e2-9e96-0800200c9a66'  // BL652
+                ];
 
                 for (const service of services) {
                     const characteristics = await service.getCharacteristics();
 
                     for (const char of characteristics) {
                         availableCharacteristics.push(char);
+                        const uuid = char.uuid.toLowerCase();
 
-                        const div = document.createElement('div');
-                        div.className = 'char-item';
-                        div.setAttribute('data-uuid', char.uuid);
+                        // Populate UI dropdown
+                        const option = document.createElement('option');
+                        option.value = char.uuid;
 
                         let props = [];
-                        if (char.properties.write || char.properties.writeWithoutResponse) props.push('✏️');
-                        if (char.properties.notify || char.properties.indicate) props.push('🔔');
-                        if (char.properties.read) props.push('👁️');
+                        if (char.properties.read) props.push('Read');
+                        if (char.properties.write) props.push('Write');
+                        if (char.properties.writeWithoutResponse) props.push('WriteNR');
+                        if (char.properties.notify) props.push('Notify');
+                        if (char.properties.indicate) props.push('Indicate');
 
-                        div.textContent = `${char.uuid.slice(-8)} - ${props.join(' ')}`;
+                        option.textContent = `${char.uuid} (${props.join(', ')})`;
+                        charSelect.appendChild(option);
 
-                        div.addEventListener('click', () => {
-                            document.querySelectorAll('.char-item').forEach(el => el.classList.remove('selected'));
-                            div.classList.add('selected');
+                        // 1. Try matching known UUIDs specifically (ignores broken property flags)
+                        if (!writeCharacteristic && knownWriteUUIDs.includes(uuid)) {
+                            writeCharacteristic = char;
+                        }
+                        if (!notifyCharacteristic && knownNotifyUUIDs.includes(uuid)) {
+                            notifyCharacteristic = char;
+                        }
 
-                            if (char.properties.write || char.properties.writeWithoutResponse) {
-                                document.getElementById('setWriteBtn').disabled = false;
-                            } else {
-                                document.getElementById('setWriteBtn').disabled = true;
-                            }
-
-                            if (char.properties.notify || char.properties.indicate) {
-                                document.getElementById('setNotifyBtn').disabled = false;
-                            } else {
-                                document.getElementById('setNotifyBtn').disabled = true;
-                            }
-
-                            window.selectedCharacteristic = char;
-                        });
-
-                        document.getElementById('charList').appendChild(div);
+                        // 2. Fallback to auto-assign by property if not matched yet
+                        if (!writeCharacteristic && (char.properties.write || char.properties.writeWithoutResponse)) {
+                            writeCharacteristic = char;
+                        }
+                        if (!notifyCharacteristic && (char.properties.notify || char.properties.indicate)) {
+                            notifyCharacteristic = char;
+                        }
                     }
                 }
+
+                document.getElementById('setWriteBtn').disabled = false;
+                document.getElementById('setNotifyBtn').disabled = false;
+
+                if (!writeCharacteristic || !notifyCharacteristic) {
+                    console.warn("Could not auto-find standard Write or Notify characteristics. Manual setup may be required.");
+                }
+
+                if (writeCharacteristic) {
+                    isReadyToSend = true;
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('sendStatus').textContent = 'Status: Ready to send JSON';
+                    document.getElementById('sendStatus').style.color = '#00ffaa';
+                    document.getElementById('writeCharText').textContent = writeCharacteristic.uuid;
+                    document.getElementById('writeCharText').style.color = '#00ffaa';
+                    console.log("Assigned write char:", writeCharacteristic.uuid);
+                }
+
+                if (notifyCharacteristic) {
+                    isReadyToReceive = true;
+                    document.getElementById('receiveStatus').textContent = 'Status: Ready to start receiving';
+                    document.getElementById('receiveStatus').style.color = '#00ffaa';
+                    document.getElementById('notifyCharText').textContent = notifyCharacteristic.uuid;
+                    document.getElementById('notifyCharText').style.color = '#00ffaa';
+                    console.log("Assigned notify char:", notifyCharacteristic.uuid);
+                    // Automatically start receiving
+                    setTimeout(startReceiving, 500);
+                }
+
             } catch (error) {
                 console.error('Discover services error:', error);
+
+                // Detailed alert to help debug if it fails here
                 alert('Error discovering services: ' + error.message);
             }
         }
 
-        function setPresetUUID(serviceUuid, charUuid) {
-            document.getElementById('serviceUuidEntry').value = serviceUuid;
-            document.getElementById('charUuidEntry').value = charUuid;
-            setManualUUID();
+        async function setWriteCharacteristic() {
+            const uuid = document.getElementById('charSelect').value;
+            if (!uuid) {
+                alert('Please select a characteristic first');
+                return;
+            }
+
+            const char = availableCharacteristics.find(c => c.uuid === uuid);
+            if (char) {
+                writeCharacteristic = char;
+                isReadyToSend = true;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('sendStatus').textContent = 'Status: Ready to send JSON';
+                document.getElementById('sendStatus').style.color = '#00ffaa';
+
+                document.getElementById('writeCharText').textContent = uuid;
+                document.getElementById('writeCharText').style.color = '#00ffaa';
+            }
+        }
+
+        async function setNotifyCharacteristic() {
+            const uuid = document.getElementById('charSelect').value;
+            if (!uuid) {
+                alert('Please select a characteristic first');
+                return;
+            }
+
+            const char = availableCharacteristics.find(c => c.uuid === uuid);
+            if (char) {
+                // Stop old notifications if exist
+                if (isReceiving && notifyCharacteristic) {
+                    try {
+                        await notifyCharacteristic.stopNotifications();
+                        notifyCharacteristic.removeEventListener('characteristicvaluechanged', handleNotification);
+                    } catch (e) {
+                        console.error("Error stopping old notifications:", e);
+                    }
+                }
+
+                notifyCharacteristic = char;
+                isReadyToReceive = true;
+                document.getElementById('receiveStatus').textContent = 'Status: Ready to start receiving';
+                document.getElementById('receiveStatus').style.color = '#00ffaa';
+
+                document.getElementById('notifyCharText').textContent = uuid;
+                document.getElementById('notifyCharText').style.color = '#00ffaa';
+
+                // Automatically hook up
+                setTimeout(startReceiving, 500);
+            }
         }
 
         async function connect() {
@@ -2545,6 +2462,37 @@
                 document.getElementById('connStatus').textContent = 'Connecting...';
                 document.getElementById('connectBtn').disabled = true;
 
+                // Watch Advertisements for RSSI
+                try {
+                    bluetoothDevice.addEventListener('advertisementreceived', (event) => {
+                        if (event.rssi) {
+                            const rssiInd = document.getElementById('rssiIndicator');
+                            const rssiText = document.getElementById('rssiText');
+                            rssiText.textContent = `Range: ${event.rssi} dBm`;
+
+                            if (event.rssi > -60) {
+                                rssiInd.style.color = '#00ffaa';
+                                rssiText.style.color = '#00ffaa';
+                            } else if (event.rssi > -80) {
+                                rssiInd.style.color = '#ffaa00';
+                                rssiText.style.color = '#ffaa00';
+                            } else {
+                                rssiInd.style.color = '#ff4444';
+                                rssiText.style.color = '#ff4444';
+                            }
+                        }
+                    });
+                    await bluetoothDevice.watchAdvertisements();
+                } catch (e) {
+                    console.warn("watchAdvertisements not supported or failed silently.", e.message);
+                    // Fail silently so it doesn't show an ugly "Range: Not Supported" error on Windows
+                    document.getElementById('rssiText').textContent = 'Range: Unknown';
+                    document.getElementById('rssiText').style.color = '#8899aa';
+                    document.getElementById('rssiIndicator').style.color = '#8899aa';
+                }
+
+                bluetoothDevice.addEventListener('gattserverdisconnected', disconnect);
+
                 gattServer = await bluetoothDevice.gatt.connect();
 
                 if (!gattServer.connected) {
@@ -2553,8 +2501,20 @@
 
                 isConnected = true;
 
+                // Wait a tiny bit (800ms) for GATT server to stabilize before retrieving services
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                if (!gattServer.connected) {
+                    throw new Error('Connection dropped during stabilization');
+                }
+
                 // Auto-discover services
                 await discoverServices();
+
+                // Check again to avoid race condition where disconnect() fires during discoverServices
+                if (!gattServer.connected) {
+                    throw new Error('Connection dropped during service discovery');
+                }
 
                 document.getElementById('connLed').style.color = '#00ffaa';
                 document.getElementById('connStatus').textContent = 'Connected';
@@ -2569,6 +2529,11 @@
                 document.getElementById('connStatus').textContent = 'Connection Failed';
                 document.getElementById('connectBtn').disabled = false;
                 alert(`Connection failed: ${error.message}`);
+
+                // Ensure state is cleaned up if it failed partway through
+                if (isConnected) {
+                    disconnect();
+                }
             }
         }
 
@@ -2592,49 +2557,26 @@
             notifyCharacteristic = null;
             availableCharacteristics = [];
 
+            if (bluetoothDevice) {
+                bluetoothDevice.removeEventListener('gattserverdisconnected', disconnect);
+            }
+
             document.getElementById('connLed').style.color = '#ff4444';
             document.getElementById('connStatus').textContent = 'Disconnected';
             document.getElementById('statusLed').style.color = '#ff4444';
             document.getElementById('statusText').textContent = 'Disconnected';
             document.getElementById('connectBtn').disabled = false;
             document.getElementById('disconnectBtn').disabled = true;
-            document.getElementById('setWriteBtn').disabled = true;
-            document.getElementById('setNotifyBtn').disabled = true;
             document.getElementById('sendBtn').disabled = true;
-            document.getElementById('startReceiveBtn').disabled = true;
-            document.getElementById('stopReceiveBtn').disabled = true;
-            document.getElementById('writeCharLabel').textContent = 'Not set';
-            document.getElementById('notifyCharLabel').textContent = 'Not set';
             document.getElementById('sendStatus').textContent = 'Status: Not ready - disconnected';
             document.getElementById('sendStatus').style.color = '#ff4444';
             document.getElementById('receiveStatus').textContent = 'Status: Not ready - disconnected';
             document.getElementById('receiveStatus').style.color = '#ff4444';
 
             document.getElementById('deviceStatus').textContent = 'No device';
-            document.getElementById('charList').innerHTML = '<div style="color: #8899aa; text-align: center;">Connect to see characteristics</div>';
-            document.getElementById('discoverServicesBtn').disabled = true;
-        }
-
-        function setWriteCharacteristic() {
-            if (window.selectedCharacteristic) {
-                writeCharacteristic = window.selectedCharacteristic;
-                document.getElementById('writeCharLabel').textContent = writeCharacteristic.uuid.slice(0, 8) + '...';
-                isReadyToSend = true;
-                document.getElementById('sendBtn').disabled = false;
-                document.getElementById('sendStatus').textContent = 'Status: Ready to send JSON';
-                document.getElementById('sendStatus').style.color = '#00ffaa';
-            }
-        }
-
-        function setNotifyCharacteristic() {
-            if (window.selectedCharacteristic) {
-                notifyCharacteristic = window.selectedCharacteristic;
-                document.getElementById('notifyCharLabel').textContent = notifyCharacteristic.uuid.slice(0, 8) + '...';
-                isReadyToReceive = true;
-                document.getElementById('startReceiveBtn').disabled = false;
-                document.getElementById('receiveStatus').textContent = 'Status: Ready to start receiving';
-                document.getElementById('receiveStatus').style.color = '#00ffaa';
-            }
+            document.getElementById('rssiText').textContent = 'Range: N/A';
+            document.getElementById('rssiText').style.color = '#8899aa';
+            document.getElementById('rssiIndicator').style.color = '#8899aa';
         }
 
         // ==================== NOTIFICATIONS ====================
@@ -2646,8 +2588,6 @@
                 notifyCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
                 isReceiving = true;
 
-                document.getElementById('startReceiveBtn').disabled = true;
-                document.getElementById('stopReceiveBtn').disabled = false;
                 document.getElementById('receiveStatus').textContent = 'Status: Receiving data...';
                 document.getElementById('receiveStatus').style.color = '#ffaa00';
 
@@ -2667,8 +2607,6 @@
                 await notifyCharacteristic.stopNotifications();
                 isReceiving = false;
 
-                document.getElementById('startReceiveBtn').disabled = false;
-                document.getElementById('stopReceiveBtn').disabled = true;
                 document.getElementById('receiveStatus').textContent = 'Status: Stopped';
                 document.getElementById('receiveStatus').style.color = '#ffaa00';
 
@@ -2778,6 +2716,29 @@
                 document.getElementById('packetsReceived').textContent = packetsReceived;
                 document.getElementById('globalRcvdCount').textContent = packetsReceived;
                 document.getElementById('totalPacketsReceived').textContent = packetsReceived;
+
+                // Handle CAN status mapping
+                if (jsonData.can_status) {
+                    const canInd = document.getElementById('canIndicator');
+                    const canText = document.getElementById('canStatusText');
+
+                    if (jsonData.can_status === 'can_ok') {
+                        canInd.style.color = '#00ffaa';
+                        canText.textContent = 'CAN: OK';
+                        canText.style.color = '#00ffaa';
+                    } else if (jsonData.can_status === 'no_can_messages') {
+                        canInd.style.color = '#ff4444';
+                        canText.textContent = 'CAN: No Data';
+                        canText.style.color = '#ff4444';
+                    }
+
+                    if (window.canStatusTimeout) clearTimeout(window.canStatusTimeout);
+                    window.canStatusTimeout = setTimeout(() => {
+                        canInd.style.color = '#ffaa00';
+                        canText.textContent = 'CAN: Offline';
+                        canText.style.color = '#8899aa';
+                    }, 2000);
+                }
 
                 // Display in receive tab
                 document.getElementById('receivedJson').value = JSON.stringify(jsonData, null, 2);
@@ -3583,16 +3544,11 @@
             const preview = JSON.stringify(data).substring(0, 50) + (JSON.stringify(data).length > 50 ? '...' : '');
             const entry = { time: timestamp, data, preview, type: 'sent' };
 
-            // Save to Firebase (Firebase listener will update the local array)
-            saveToFirebase('sent_data', entry);
-
-            if (!firebaseReady) {
-                if (tab === 'main' || tab === 'all') {
-                    sentHistory.unshift(entry);
-                    if (sentHistory.length > maxHistory) sentHistory.pop();
-                }
-                updateSentHistoryDisplay();
+            if (tab === 'main' || tab === 'all') {
+                sentHistory.unshift(entry);
+                if (sentHistory.length > maxHistory) sentHistory.pop();
             }
+            updateSentHistoryDisplay();
         }
 
         function addToReceivedHistory(data, tab = 'main') {
@@ -3602,16 +3558,11 @@
 
             const entry = { time: timestamp, data, preview, type: 'received' };
 
-            // Save to Firebase (Firebase listener will update the local array)
-            saveToFirebase('received_data', entry);
-
-            if (!firebaseReady) {
-                if (tab === 'main' || tab === 'all') {
-                    receivedHistory.unshift(entry);
-                    if (receivedHistory.length > maxHistory) receivedHistory.pop();
-                }
-                updateReceivedHistoryDisplay();
+            if (tab === 'main' || tab === 'all') {
+                receivedHistory.unshift(entry);
+                if (receivedHistory.length > maxHistory) receivedHistory.pop();
             }
+            updateReceivedHistoryDisplay();
         }
 
         function addToMotorSentHistory(data) {
@@ -3651,13 +3602,9 @@
             const preview = JSON.stringify(data).substring(0, 50) + (JSON.stringify(data).length > 50 ? '...' : '');
             const entry = { time: timestamp, data, preview };
 
-            saveToFirebase('error_data', entry);
-
-            if (!firebaseReady) {
-                errorHistory.unshift(entry);
-                if (errorHistory.length > maxHistory) errorHistory.pop();
-                updateErrorHistoryDisplay();
-            }
+            errorHistory.unshift(entry);
+            if (errorHistory.length > maxHistory) errorHistory.pop();
+            updateErrorHistoryDisplay();
         }
 
         function updateAllHistoryDisplays() {
