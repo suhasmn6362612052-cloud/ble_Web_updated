@@ -2160,15 +2160,25 @@
         }
 
         function checkBluetoothAvailability() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
             if (navigator.bluetooth) {
                 document.getElementById('btIndicator').style.color = '#00ffaa';
                 document.getElementById('btText').textContent = 'Bluetooth Ready';
                 document.getElementById('btText').style.color = '#00ffaa';
+                document.getElementById('scanBtn').disabled = false;
             } else {
-                document.getElementById('btIndicator').style.color = '#ff4444';
-                document.getElementById('btText').textContent = 'Bluetooth Not Available';
-                document.getElementById('btText').style.color = '#ff4444';
-                document.getElementById('scanBtn').disabled = true;
+                if (isIOS) {
+                    document.getElementById('btIndicator').style.color = '#ffaa00';
+                    document.getElementById('btText').textContent = 'iOS Detected: Use WebBLE or Bluefy App';
+                    document.getElementById('btText').style.color = '#ffaa00';
+                    // Don't disable the button on iOS just in case the polyfill loads late
+                } else {
+                    document.getElementById('btIndicator').style.color = '#ff4444';
+                    document.getElementById('btText').textContent = 'Bluetooth Not Available (Use Chrome/Edge)';
+                    document.getElementById('btText').style.color = '#ff4444';
+                    document.getElementById('scanBtn').disabled = true;
+                }
             }
         }
 
@@ -2193,10 +2203,17 @@
 
         // ==================== BLUETOOTH FUNCTIONS ====================
         async function startScan() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
             try {
                 isScanning = true;
                 document.getElementById('scanBtn').disabled = true;
 
+                if (!navigator.bluetooth) {
+                    throw new Error(isIOS ? "iOS Blocked: Apple does not allow Bluetooth in Safari. Please download 'WebBLE' or 'Bluefy' from the App Store and open this page inside that app to connect." : "Web Bluetooth API is not available in your browser.");
+                }
+
+                // Note: iOS WebBLE and Bluefy specifically require acceptAllDevices: true WITH optionalServices.
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [
@@ -2224,6 +2241,16 @@
 
             } catch (error) {
                 console.error('Scan error:', error);
+
+                // If it's iOS and the user cancelled or hit a polyfill error, show a more helpful alert.
+                if (isIOS && error.message.includes('User cancelled')) {
+                    alert("Scan cancelled. Make sure your device is powered on, nearby, and not connected to another app.");
+                } else if (isIOS && !navigator.bluetooth) {
+                    alert("Apple Safari blocks Bluetooth! You must use a 3rd party app like 'WebBLE' or 'Bluefy' on iOS.");
+                } else {
+                    alert(`Scan error: ${error.message}`);
+                }
+
                 if (!firebaseReady) {
                     document.getElementById('deviceList').innerHTML = `<div style="color: #ff4444; text-align: center;">Scan error: ${error.message}</div>`;
                 }
@@ -2260,6 +2287,15 @@
                         div.classList.add('selected');
 
                         try {
+                            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+                            if (isIOS) {
+                                // WebBLE and Bluefy often do not support getDevices() properly due to Apple's abstraction
+                                // Direct them to scan again instead of erroring out obscurely
+                                alert("On iOS, saved devices cannot be reconnected directly due to Apple privacy rules. Please click the main 'SCAN FOR DEVICES' button above to reconnect.");
+                                return;
+                            }
+
                             if (!navigator.bluetooth.getDevices) {
                                 throw new Error("Your browser version does not support the Web Bluetooth getDevices() API.");
                             }
@@ -3086,8 +3122,32 @@
 
             hexFileOffset += chunk.length;
 
-            document.getElementById('jsonInput').value = JSON.stringify(response);
-            sendJSON();
+            // Alternatively, sending exactly literal characters:
+            // data: chunk
+
+            hexFileOffset += chunk.length;
+
+            const responseText = JSON.stringify(response);
+            document.getElementById('jsonInput').value = responseText;
+
+            // Bypass sendJSON strictly here to use the raw text encoder on the response immediately 
+            // without rebuilding the UI again.
+            if (isConnected && writeCharacteristic) {
+                const responseData = new TextEncoder().encode(responseText);
+                try {
+                    const chunkSize = 100;
+                    for (let i = 0; i < responseData.length; i += chunkSize) {
+                        const rChunk = responseData.slice(i, i + chunkSize);
+                        if (writeCharacteristic.properties.writeWithoutResponse) {
+                            writeCharacteristic.writeValueWithoutResponse(rChunk);
+                        } else {
+                            writeCharacteristic.writeValue(rChunk);
+                        }
+                    }
+                } catch (e) {
+                    console.error("OTA Write Error:", e);
+                }
+            }
 
             addToSwUpdateSentHistory(response);
 
@@ -3429,16 +3489,25 @@
                 document.getElementById('sendStatus').style.color = '#ffaa00';
 
                 const data = new TextEncoder().encode(jsonText);
-                const chunkSize = 200;
+
+                // iOS WebBLE and Bluefy perform best with smaller chunks and without response.
+                // 200 bytes is often too large for iOS CoreBluetooth abstractions.
+                const chunkSize = 100;
 
                 for (let i = 0; i < data.length; i += chunkSize) {
                     const chunk = data.slice(i, i + chunkSize);
-                    await writeCharacteristic.writeValue(chunk);
+
+                    if (writeCharacteristic.properties.writeWithoutResponse) {
+                        await writeCharacteristic.writeValueWithoutResponse(chunk);
+                    } else {
+                        await writeCharacteristic.writeValue(chunk);
+                    }
 
                     const percent = ((i + chunk.length) / data.length) * 100;
                     document.getElementById('progressBar').style.width = percent + '%';
 
-                    await new Promise(resolve => setTimeout(resolve, 20));
+                    // Give iOS devices slightly more time to process the buffer
+                    await new Promise(resolve => setTimeout(resolve, 30));
                 }
 
                 packetsSent++;
