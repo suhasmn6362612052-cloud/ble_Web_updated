@@ -1503,7 +1503,7 @@
                                             style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
                                     </div>
                                     <button class="btn btn-primary" onclick="authorizeByteSend()" id="authorizeByteBtn"
-                                        disabled style="width: 100%; padding: 15px;">📤 SEND BYTES VIA BLE</button>
+                                        disabled style="width: 100%; padding: 15px;">📤 SEND REQUESTED BYTES </button>
                                 </div>
                             </div>
 
@@ -1568,6 +1568,17 @@
         </div>
     </div>
 
+    <!-- Global Alert Modal (Smaller floating popup) -->
+    <div id="alertModal"
+        style="display: none; position: fixed; z-index: 9999; left: 50%; top: 50%; transform: translate(-50%, -50%); background-color: #1a2233; border: 1px solid #2a3344; border-top: 4px solid #ffaa00; border-radius: 8px; padding: 20px; width: 400px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.9); text-align: center;">
+        <h3
+            style="color: #ffaa00; border-bottom: 1px solid #2a3344; padding-bottom: 12px; margin-top: 0; font-size: 18px;">
+            ⚠️ Operation Rejected</h3>
+        <div id="alertMessageTxt" style="font-size: 15px; margin: 15px 0; color: white; line-height: 1.4;"></div>
+        <button class="btn btn-warning" onclick="document.getElementById('alertModal').style.display='none'"
+            style="width: 100%; padding: 10px; margin-top: 10px; font-weight: bold;">DISMISS</button>
+    </div>
+
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item">
@@ -1579,6 +1590,10 @@
         </div>
         <div class="status-item">
             <span style="color: #ffaa00;">Rcvd: <span id="globalRcvdCount">0</span></span>
+        </div>
+        <div class="status-item" style="margin-left: 15px; border-left: 1px solid #2a3344; padding-left: 15px;">
+            <span style="color: #8899aa;">Parking:</span> <span id="globalParkingState"
+                style="color: #8899aa; font-weight: bold;">Unknown</span>
         </div>
         <div class="status-item" style="margin-left: auto;">
             <span style="color: #8899aa;" id="deviceStatus">No device</span>
@@ -2278,6 +2293,7 @@
                 charSelect.innerHTML = '<option value="">Select a characteristic</option>';
 
                 const knownWriteUUIDs = [
+                    '0000ffe2-0000-1000-8000-00805f9b34fb', // DCU_BLE / Secondary HM-10
                     '0000ffe1-0000-1000-8000-00805f9b34fb', // HM-10
                     '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Nordic TX
                     '0000fff2-0000-1000-8000-00805f9b34fb', // Common serial
@@ -2312,7 +2328,15 @@
                         option.textContent = `${char.uuid} (${props.join(', ')})`;
                         charSelect.appendChild(option);
 
-                        // 1. Try matching known UUIDs specifically (ignores broken property flags)
+                        // 1. Prioritize assigning based on actual supported GATT properties!
+                        if (!writeCharacteristic && (char.properties.write || char.properties.writeWithoutResponse)) {
+                            writeCharacteristic = char;
+                        }
+                        if (!notifyCharacteristic && (char.properties.notify || char.properties.indicate)) {
+                            notifyCharacteristic = char;
+                        }
+
+                        // 2. Fallback to known UUIDs ONLY if properties are incorrectly omitted by module
                         if (!writeCharacteristic && knownWriteUUIDs.includes(uuid)) {
                             writeCharacteristic = char;
                         }
@@ -2320,11 +2344,12 @@
                             notifyCharacteristic = char;
                         }
 
-                        // 2. Fallback to auto-assign by property if not matched yet
-                        if (!writeCharacteristic && (char.properties.write || char.properties.writeWithoutResponse)) {
+                        // 3. EXPLICIT OVERRIDE for DCU_BLE specifically: ffe1 is Notify, ffe2 is Write.
+                        // Some knockoff modules list ffe1 as Write even when it strictly rejects writes.
+                        if (uuid === '0000ffe2-0000-1000-8000-00805f9b34fb') {
                             writeCharacteristic = char;
                         }
-                        if (!notifyCharacteristic && (char.properties.notify || char.properties.indicate)) {
+                        if (uuid === '0000ffe1-0000-1000-8000-00805f9b34fb') {
                             notifyCharacteristic = char;
                         }
                     }
@@ -2689,11 +2714,11 @@
                     const canInd = document.getElementById('canIndicator');
                     const canText = document.getElementById('canStatusText');
 
-                    if (jsonData.can_status === 'can_ok') {
+                    if (jsonData.can_status === 'can_ok' || jsonData.can_status === 'ok' || jsonData.can_status === 'OK') {
                         canInd.style.color = '#00ffaa';
                         canText.textContent = 'CAN: OK';
                         canText.style.color = '#00ffaa';
-                    } else if (jsonData.can_status === 'no_can_messages') {
+                    } else if (jsonData.can_status === 'no_can_messages' || jsonData.can_status === 'error') {
                         canInd.style.color = '#ff4444';
                         canText.textContent = 'CAN: No Data';
                         canText.style.color = '#ff4444';
@@ -2716,6 +2741,28 @@
                 addToReceivedHistory(jsonData, 'main');
 
                 const cmd = jsonData.cmd;
+
+                // Priority check for rejected operation messages (strings without a specific command)
+                if (jsonData.status && typeof jsonData.status === 'string' && jsonData.status.includes('mode')) {
+                    document.getElementById('alertMessageTxt').textContent = jsonData.status;
+                    document.getElementById('alertModal').style.display = 'block';
+
+                    // Update parking status directly if implicitly stated by rejection
+                    if (jsonData.status.toLowerCase().includes('motoring mode')) {
+                        const parkInd = document.getElementById('globalParkingState');
+                        if (parkInd) {
+                            parkInd.textContent = 'Not in Parking';
+                            parkInd.style.color = '#ffaa00';
+                        }
+                    }
+
+                    // Auto-dismiss the modal so it doesn't forever block the screen if received continuously
+                    if (window.alertTimeout) clearTimeout(window.alertTimeout);
+                    window.alertTimeout = setTimeout(() => {
+                        const modal = document.getElementById('alertModal');
+                        if (modal) modal.style.display = 'none';
+                    }, 4000);
+                }
 
                 if (cmd === 'status') {
                     updateMotorStatus(jsonData);
@@ -3120,7 +3167,7 @@
             btn.textContent = '📤 SEND REQUESTED BYTES VIA BLE';
         }
 
-        function authorizeByteSend() {
+        async function authorizeByteSend() {
             if (!pendingByteReq) return;
 
             const response = {
@@ -3145,17 +3192,22 @@
             if (isConnected && writeCharacteristic) {
                 const responseData = new TextEncoder().encode(responseText);
                 try {
-                    const chunkSize = 100;
+                    const chunkSize = 20; // 20 bytes is the absolute max payload for standard BLE 4.0 23-byte MTU
                     for (let i = 0; i < responseData.length; i += chunkSize) {
                         const rChunk = responseData.slice(i, i + chunkSize);
-                        if (writeCharacteristic.properties.writeWithoutResponse) {
-                            writeCharacteristic.writeValueWithoutResponse(rChunk);
+                        // Prefer standard write (with response) to avoid GATT operation errors on Windows Chrome
+                        if (writeCharacteristic.properties.write) {
+                            await writeCharacteristic.writeValue(rChunk);
+                        } else if (writeCharacteristic.properties.writeWithoutResponse) {
+                            await writeCharacteristic.writeValueWithoutResponse(rChunk);
                         } else {
-                            writeCharacteristic.writeValue(rChunk);
+                            await writeCharacteristic.writeValue(rChunk); // Fallback
                         }
+                        await new Promise(resolve => setTimeout(resolve, 30));
                     }
                 } catch (e) {
                     console.error("OTA Write Error:", e);
+                    alert("OTA Write Error: " + e.message);
                 }
             }
 
@@ -3189,13 +3241,16 @@
         // ==================== MOTOR STATUS UPDATE ====================
         function updateMotorStatus(data) {
             statusMessageCount++;
-            document.getElementById('msgIndicator').style.color = '#00ffaa';
-            document.getElementById('msgStatus').textContent = '✓ Status Message Received';
-            document.getElementById('msgCount').textContent = statusMessageCount;
+            let el;
+            if ((el = document.getElementById('msgIndicator'))) el.style.color = '#00ffaa';
+            if ((el = document.getElementById('msgStatus'))) el.textContent = '✓ Status Message Received';
+            if ((el = document.getElementById('msgCount'))) el.textContent = statusMessageCount;
 
-            document.getElementById('msgPreview').value = JSON.stringify(data, null, 2);
-            if (autoScrollMotor) {
-                document.getElementById('msgPreview').scrollTop = document.getElementById('msgPreview').scrollHeight;
+            if ((el = document.getElementById('msgPreview'))) {
+                el.value = JSON.stringify(data, null, 2);
+                if (autoScrollMotor) {
+                    el.scrollTop = el.scrollHeight;
+                }
             }
 
             const valueMappings = {
@@ -3229,19 +3284,45 @@
             flags.forEach(flag => {
                 const element = document.getElementById(flag);
                 if (element && data[flag] !== undefined) {
-                    if (data[flag] === 1) {
-                        element.textContent = 'ON';
-                        element.className = 'flag-value on';
+                    if (flag === 'st_ParkingState') {
+                        if (data[flag] == 1 || data[flag] === true) {
+                            element.textContent = 'Parked';
+                            element.className = 'flag-value on';
+                        } else {
+                            element.textContent = 'Not in Parking';
+                            element.className = 'flag-value off';
+                        }
                     } else {
-                        element.textContent = 'OFF';
-                        element.className = 'flag-value off';
+                        if (data[flag] === 1) {
+                            element.textContent = 'ON';
+                            element.className = 'flag-value on';
+                        } else {
+                            element.textContent = 'OFF';
+                            element.className = 'flag-value off';
+                        }
                     }
                 }
             });
 
+            // Update Global Parking Status in bottom bar
+            if (data['st_ParkingState'] !== undefined) {
+                const parkInd = document.getElementById('globalParkingState');
+                if (parkInd) {
+                    // Use loose equality to safely match integer 1, string "1", or boolean true
+                    if (data['st_ParkingState'] == 1 || data['st_ParkingState'] === true) {
+                        parkInd.textContent = 'Parked';
+                        parkInd.style.color = '#00ffaa';
+                    } else {
+                        parkInd.textContent = 'Not in Parking';
+                        parkInd.style.color = '#ffaa00';
+                    }
+                }
+            }
+
             setTimeout(() => {
-                document.getElementById('msgIndicator').style.color = '#ff4444';
-                document.getElementById('msgStatus').textContent = 'Waiting for status messages';
+                let el;
+                if ((el = document.getElementById('msgIndicator'))) el.style.color = '#ff4444';
+                if ((el = document.getElementById('msgStatus'))) el.textContent = 'Waiting for status messages';
             }, 1000);
         }
 
@@ -3249,8 +3330,9 @@
         function updateWriteValues(data) {
             if (data.cmd !== 'write') return;
 
-            document.getElementById('canIndicator').style.color = '#00ffaa';
-            document.getElementById('canStatus').textContent = '✓ Write Parameters Received';
+            let el;
+            if ((el = document.getElementById('canIndicator'))) el.style.color = '#00ffaa';
+            if ((el = document.getElementById('canStatusText'))) el.textContent = '✓ Write Parameters Received';
 
             Object.assign(latestWriteValues, data);
 
@@ -3275,15 +3357,17 @@
             });
 
             setTimeout(() => {
-                document.getElementById('canIndicator').style.color = '#ffaa00';
-                document.getElementById('canStatus').textContent = 'Waiting for write messages';
+                let el;
+                if ((el = document.getElementById('canIndicator'))) el.style.color = '#ffaa00';
+                if ((el = document.getElementById('canStatusText'))) el.textContent = 'Waiting for write messages';
             }, 1000);
         }
 
         // ==================== CONFIG VALUES UPDATE ====================
         function updateConfigValues(data) {
-            document.getElementById('canIndicator').style.color = '#00ffaa';
-            document.getElementById('canStatus').textContent = '✓ Config Data Received';
+            let el;
+            if ((el = document.getElementById('canIndicator'))) el.style.color = '#00ffaa';
+            if ((el = document.getElementById('canStatusText'))) el.textContent = '✓ Config Data Received';
 
             const configMap = {
                 'x07_d1_max_ac_curr_rms': 'ac_current_max_rms_a',
@@ -3322,8 +3406,9 @@
             }
 
             setTimeout(() => {
-                document.getElementById('canIndicator').style.color = '#ffaa00';
-                document.getElementById('canStatus').textContent = 'Waiting for messages';
+                let el;
+                if ((el = document.getElementById('canIndicator'))) el.style.color = '#ffaa00';
+                if ((el = document.getElementById('canStatusText'))) el.textContent = 'Waiting for messages';
             }, 2000);
         }
 
@@ -3332,13 +3417,14 @@
             if (data.cmd !== 'fault') return;
 
             errorMessageCount++;
-            document.getElementById('errorMsgIndicator').style.color = '#ffaa00';
-            document.getElementById('errorMsgStatus').textContent = '✓ Fault Message Received';
-            document.getElementById('errorMsgCount').textContent = errorMessageCount;
+            let el;
+            if ((el = document.getElementById('errorMsgIndicator'))) el.style.color = '#ffaa00';
+            if ((el = document.getElementById('errorMsgStatus'))) el.textContent = '✓ Fault Message Received';
+            if ((el = document.getElementById('errorMsgCount'))) el.textContent = errorMessageCount;
 
-            document.getElementById('errorPreview').value = JSON.stringify(data, null, 2);
-            if (autoScrollError) {
-                document.getElementById('errorPreview').scrollTop = document.getElementById('errorPreview').scrollHeight;
+            if ((el = document.getElementById('errorPreview'))) {
+                el.value = JSON.stringify(data, null, 2);
+                if (autoScrollError) el.scrollTop = el.scrollHeight;
             }
 
             // Reset all errors first
@@ -3375,8 +3461,9 @@
             addToErrorHistory(data);
 
             setTimeout(() => {
-                document.getElementById('errorMsgIndicator').style.color = '#ff4444';
-                document.getElementById('errorMsgStatus').textContent = 'Waiting for fault messages';
+                let el;
+                if ((el = document.getElementById('errorMsgIndicator'))) el.style.color = '#ff4444';
+                if ((el = document.getElementById('errorMsgStatus'))) el.textContent = 'Waiting for fault messages';
             }, 1000);
         }
 
@@ -3430,16 +3517,20 @@
                 const data = new TextEncoder().encode(jsonText);
 
                 // iOS WebBLE and Bluefy perform best with smaller chunks and without response.
-                // 200 bytes is often too large for iOS CoreBluetooth abstractions.
-                const chunkSize = 100;
+                // 20 bytes is the absolute max payload for standard BLE 4.0 23-byte MTU.
+                // Exceeding it on writeWithoutResponse WILL throw 'GATT operation not permitted' on Windows.
+                const chunkSize = 20;
 
                 for (let i = 0; i < data.length; i += chunkSize) {
                     const chunk = data.slice(i, i + chunkSize);
 
-                    if (writeCharacteristic.properties.writeWithoutResponse) {
+                    // Prefer standard write (with response) to avoid GATT operation errors on Windows Chrome
+                    if (writeCharacteristic.properties.write) {
+                        await writeCharacteristic.writeValue(chunk);
+                    } else if (writeCharacteristic.properties.writeWithoutResponse) {
                         await writeCharacteristic.writeValueWithoutResponse(chunk);
                     } else {
-                        await writeCharacteristic.writeValue(chunk);
+                        await writeCharacteristic.writeValue(chunk); // Fallback
                     }
 
                     const percent = ((i + chunk.length) / data.length) * 100;
