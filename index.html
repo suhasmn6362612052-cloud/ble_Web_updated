@@ -2746,7 +2746,7 @@
                     setFirebaseValue('latest_sw_update', jsonData);
                     addToSwUpdateReceivedHistory(jsonData);
                 }
-                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
+                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || cmd === 'byte request' || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
                     addToSwUpdateReceivedHistory(jsonData);
                     handleByteRequest(jsonData);
                 }
@@ -3088,21 +3088,27 @@
             }
 
             // Determine length from device request (fallback to 8)
-            const length = data.length || data.size || data.bytes || 8;
+            const length = data.no || data.length || data.size || data.bytes || 8;
 
             if (hexFileOffset >= hexFileSize) {
                 console.log("OTA Complete, nothing more to send.");
+                document.getElementById('swUpdateFileStatus').textContent = 'UPDATE COMPLETE';
+                document.getElementById('swUpdateFileStatus').style.color = '#00ffaa';
                 return;
             }
 
-            const chunk = hexFileText.substring(hexFileOffset, hexFileOffset + length);
+            let bytesToSend = length;
+            if (hexFileOffset + length > hexFileSize) {
+                bytesToSend = hexFileSize - hexFileOffset;
+            }
+
+            const chunk = hexFileText.substring(hexFileOffset, hexFileOffset + bytesToSend);
 
             pendingByteReq = {
-                cmd: "sw_data",
+                cmd: "sw_updt_req_data",
                 offset: hexFileOffset,
                 data: Array.from(chunk).map(c => c.charCodeAt(0)),
-                lengthRequested: length,
-                chunkString: chunk
+                lengthRequested: bytesToSend
             };
 
             document.getElementById('pendingByteRequest').textContent = `${length} BYTES`;
@@ -3118,10 +3124,16 @@
             if (!pendingByteReq) return;
 
             const response = {
-                cmd: pendingByteReq.cmd,
-                offset: pendingByteReq.offset,
-                data: pendingByteReq.data
+                cmd: "sw_updt_req_data"
             };
+
+            for (let i = 0; i < 8; i++) {
+                if (i < pendingByteReq.data.length) {
+                    response[`b${i}`] = pendingByteReq.data[i];
+                } else {
+                    response[`b${i}`] = 255;
+                }
+            }
 
             hexFileOffset += pendingByteReq.lengthRequested;
 
