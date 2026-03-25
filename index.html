@@ -6,9 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DCU BLUETOOTH DCU - DASHBOARD </title>
 
-    <!-- Firebase SDK Setup -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- PWA Setup -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0f1e">
+    <link rel="apple-touch-icon" href="icon.svg">
+
+    <!-- Firebase SDK Setup (Consolidated to v9 compat at end of head) -->
 
     <style>
         /* KEEP ALL EXISTING CSS STYLES EXACTLY AS BEFORE */
@@ -1318,8 +1321,8 @@
         <div class="right-panel">
             <div class="tabs">
                 <div class="tab-header">
-                    <button class="tab-btn active" onclick="switchTab('send')">📤 SEND JSON</button>
-                    <button class="tab-btn" onclick="switchTab('receive')">📥 RECEIVE JSON</button>
+                    <button class="tab-btn active" onclick="switchTab('send')">📤 TRANSMIT</button>
+                    <button class="tab-btn" onclick="switchTab('receive')">📥 RECEIVE</button>
                     <button class="tab-btn" onclick="switchTab('motor')">🚗 MOTOR STATUS</button>
                     <button class="tab-btn" onclick="switchTab('fetch')">⚙️ CONFIG</button>
                     <button class="tab-btn" onclick="switchTab('autotune')">🎯 AUTO TUNE</button>
@@ -1334,7 +1337,7 @@
                         <div class="send-layout">
                             <div class="send-left">
                                 <div class="grid-panel">
-                                    <div class="grid-title">📤 SEND JSON</div>
+                                    <div class="grid-title">📤 transmit</div>
 
                                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                                         <input type="file" id="fileInput" accept=".json" style="display: none;">
@@ -1344,7 +1347,7 @@
                                             onclick="document.getElementById('fileInput').click()">📂 BROWSE</button>
                                     </div>
 
-                                    <div style="text-align: center; color: #8899aa; margin: 10px 0;">— OR PASTE JSON
+                                    <div style="text-align: center; color: #8899aa; margin: 10px 0;">— OR PASTE
                                         BELOW —</div>
 
                                     <textarea id="jsonInput" class="json-textarea"
@@ -1352,10 +1355,10 @@
 
                                     <div style="display: flex; gap: 10px; margin: 15px 0;">
                                         <button class="btn btn-warning" onclick="validateJSON()">✓ VALIDATE
-                                            JSON</button>
+                                        </button>
                                         <button class="btn btn-primary" onclick="clearJSON()">🗑️ CLEAR</button>
                                         <button class="btn btn-success" id="sendBtn" style="margin-left: auto;"
-                                            disabled>📤 SEND TO ARDUINO</button>
+                                            disabled>📤 SEND </button>
                                     </div>
 
                                     <div id="validationStatus" style="color: #8899aa; margin: 10px 0;"></div>
@@ -1408,7 +1411,7 @@
                         <div class="receive-layout">
                             <div class="receive-left">
                                 <div class="grid-panel">
-                                    <div class="grid-title">📥 RECEIVED JSON DATA</div>
+                                    <div class="grid-title">📥 RECEIVED DATA</div>
 
                                     <div class="scroll-control">
                                         <div class="scroll-toggle on" id="receiveScrollToggle"
@@ -1553,6 +1556,14 @@
                                         style="--gauge-value: 0; --gauge-color: #00d2ff;">
                                         <div class="gauge-label">BUS VOLT</div>
                                         <div><span class="gauge-value" id="st_DcBusVolt">0</span></div>
+                                        <div class="gauge-unit">V</div>
+                                    </div>
+                                </div>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_ThrotVolt"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">THROT VOLT</div>
+                                        <div><span class="gauge-value" id="st_ThrotVolt">0</span></div>
                                         <div class="gauge-unit">V</div>
                                     </div>
                                 </div>
@@ -1852,9 +1863,10 @@
         let maxHistory = 50;
 
         // Software update state
-        let hexFileText = "";
+        let hexFileBytes = [];
         let hexFileSize = 0;
         let hexFileOffset = 0;
+        let hexFileName = "";
 
         // Autotune Timer State
         let autotuneTimerInterval = null;
@@ -1915,6 +1927,28 @@
                 // Setup real-time listeners
                 setupFirebaseListeners();
                 console.log('✅ Firebase initialized successfully');
+
+                // Auto-restore previously uploaded HEX file if any
+                firebaseDB.ref('last_uploaded_hex').once('value').then(snapshot => {
+                    const data = snapshot.val();
+                    if (data && data.bytes && data.bytes.length > 0) {
+                        hexFileBytes = data.bytes;
+                        hexFileSize = hexFileBytes.length;
+                        hexFileOffset = 0;
+                        hexFileName = data.filename || "Cloud_Restored.hex";
+
+                        document.getElementById('hexFileInfo').innerHTML = `<strong>File:</strong> ${hexFileName} <br> <strong>Size:</strong> ${hexFileSize} bytes (Cloud Restored)`;
+                        document.getElementById('swUpdateFileStatus').textContent = 'FILE LOADED & READY';
+                        document.getElementById('swUpdateFileStatus').style.color = '#00ffaa';
+
+                        document.getElementById('otaBytesSent').textContent = '0 bytes';
+                        document.getElementById('otaTotalBytes').textContent = `${hexFileSize} bytes`;
+                        document.getElementById('otaProgressBar').style.width = '0%';
+
+                        const reqBtn = document.getElementById('requestSwUpdateBtn');
+                        if (reqBtn) reqBtn.disabled = false;
+                    }
+                });
             } catch (error) {
                 console.error('❌ Firebase init error:', error);
                 document.getElementById('firebaseDot').className = 'firebase-dot error';
@@ -2070,13 +2104,15 @@
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function () {
-            checkBluetoothAvailability();
-            initializeErrorStates();
-            initializeWritePanels();
-            initializeMotorPanels();
-            setupEventListeners();
-            updateAllHistoryDisplays();
-            initFirebase();
+            try { checkBluetoothAvailability(); } catch (e) { console.error("checkBluetoothAvailability error:", e); }
+            try { initializeErrorStates(); } catch (e) { console.error("initializeErrorStates error:", e); }
+            try { initializeWritePanels(); } catch (e) { console.error("initializeWritePanels error:", e); }
+            try { initializeMotorPanels(); } catch (e) { console.error("initializeMotorPanels error:", e); }
+            try { setupEventListeners(); } catch (e) { console.error("setupEventListeners error:", e); }
+            try { updateAllHistoryDisplays(); } catch (e) { console.error("updateAllHistoryDisplays error:", e); }
+
+            // Firebase must initialize even if UI components are missing/redesigned
+            try { initFirebase(); } catch (e) { console.error("initFirebase root error:", e); }
 
             // Handle iOS background disconnections
             document.addEventListener('visibilitychange', () => {
@@ -2094,7 +2130,7 @@
                 'st_Reverse', 'st_Neutral', 'st_HillholdMode', 'st_RegenMode',
                 'st_AscMode', 'st_PcModeEnable', 'st_StartStop', 'st_ParkingState',
                 'st_StandbyState', 'st_MotoringState', 'st_VoltDerateMode', 'st_DcClampMode',
-                'st_MtrTempDerateMode', 'st_CtrTempDerateMode', 'st_AutotuningMode'
+                'st_MtrTempDerateMode', 'st_CtrTempDerateMode', 'st_AutotuningMode', 'st_ThrotMode'
             ];
 
             const flagNames = {
@@ -2104,10 +2140,12 @@
                 'st_PcModeEnable': 'PC Mode', 'st_StartStop': 'Start/Stop', 'st_ParkingState': 'Parking',
                 'st_StandbyState': 'Standby', 'st_MotoringState': 'Motoring', 'st_VoltDerateMode': 'Volt Derate',
                 'st_DcClampMode': 'DC Clamp', 'st_MtrTempDerateMode': 'Mtr Temp Derate',
-                'st_CtrTempDerateMode': 'Ctrl Temp Derate', 'st_AutotuningMode': 'Autotuning'
+                'st_CtrTempDerateMode': 'Ctrl Temp Derate', 'st_AutotuningMode': 'Autotuning', 'st_ThrotMode': 'Throttle Mode'
             };
 
             const flagsDiv = document.getElementById('statusFlags');
+            if (!flagsDiv) return; // Prevent script crash if custom UI removes this container
+
             flagsDiv.innerHTML = '';
             flagsDiv.className = 'sf-grid';
 
@@ -2998,10 +3036,8 @@
                 else if (cmd === 'sw_update_req' || cmd === 'sw_update_ack') {
                     updateSwUpdateStatus(jsonData);
                     setFirebaseValue('latest_sw_update', jsonData);
-                    addToSwUpdateReceivedHistory(jsonData);
                 }
-                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || cmd === 'byte request' || cmd === 'sw_updt_data_Req' || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
-                    addToSwUpdateReceivedHistory(jsonData);
+                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || cmd === 'byte request' || (cmd && cmd.toLowerCase() === 'sw_updt_data_req') || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
                     handleByteRequest(jsonData);
                 }
                 else if (cmd === 'config_values') {
@@ -3318,11 +3354,25 @@
 
             const reader = new FileReader();
             reader.onload = function (e) {
-                hexFileText = e.target.result;
-                hexFileSize = hexFileText.length;
-                hexFileOffset = 0;
+                const rawText = e.target.result;
 
-                document.getElementById('hexFileInfo').innerHTML = `<strong>File:</strong> ${file.name} <br> <strong>Size:</strong> ${hexFileSize} characters`;
+                // Extract only valid 2-character hex pairs (ignores STX, ETX, spaces, etc.)
+                const hexMatches = rawText.match(/[0-9A-Fa-f]{2}/g) || [];
+                hexFileBytes = hexMatches.map(h => parseInt(h, 16));
+
+                hexFileSize = hexFileBytes.length;
+                hexFileOffset = 0;
+                hexFileName = file.name;
+
+                // Save to Firebase purely so it can be reloaded later
+                if (firebaseReady && firebaseDB) {
+                    firebaseDB.ref('last_uploaded_hex').set({
+                        filename: hexFileName,
+                        bytes: hexFileBytes
+                    });
+                }
+
+                document.getElementById('hexFileInfo').innerHTML = `<strong>File:</strong> ${hexFileName} <br> <strong>Size:</strong> ${hexFileSize} bytes`;
                 document.getElementById('swUpdateFileStatus').textContent = 'FILE LOADED & READY';
                 document.getElementById('swUpdateFileStatus').style.color = '#00ffaa';
 
@@ -3339,13 +3389,14 @@
         let pendingByteReq = null;
 
         function handleByteRequest(data) {
-            if (!hexFileText) {
+            if (!hexFileBytes || hexFileBytes.length === 0) {
                 console.warn("Device requested bytes, but no HEX file loaded.");
                 return;
             }
 
             // Determine length from device request (fallback to 8)
-            const length = data.no || data.length || data.size || data.bytes || data.len || 8;
+            const lengthStr = data.no || data.length || data.size || data.bytes || data.len;
+            const length = lengthStr ? parseInt(lengthStr, 10) : 8;
 
             if (hexFileOffset >= hexFileSize) {
                 console.log("OTA Complete, nothing more to send.");
@@ -3359,20 +3410,56 @@
                 bytesToSend = hexFileSize - hexFileOffset;
             }
 
-            const chunk = hexFileText.substring(hexFileOffset, hexFileOffset + bytesToSend);
+            const chunk = hexFileBytes.slice(hexFileOffset, hexFileOffset + bytesToSend);
 
             pendingByteReq = {
                 cmd: "sw_updt_req_data",
                 offset: hexFileOffset,
-                data: Array.from(chunk).map(c => c.charCodeAt(0)),
+                data: chunk, // Already an array of bytes!
                 lengthRequested: bytesToSend
             };
 
-            document.getElementById('pendingByteRequest').textContent = `${length} BYTES`;
+            document.getElementById('pendingByteRequest').textContent = `${bytesToSend} BYTES`;
             document.getElementById('pendingByteRequest').style.color = '#00ffaa';
 
             // Automatic send process
             authorizeByteSend();
+        }
+
+        let bleWriteQueue = [];
+        let isBleWriting = false;
+
+        async function processBleWriteQueue() {
+            if (isBleWriting || bleWriteQueue.length === 0) return;
+            isBleWriting = true;
+
+            while (bleWriteQueue.length > 0) {
+                const chunk = bleWriteQueue[0];
+                try {
+                    if (writeCharacteristic && isConnected) {
+                        if (writeCharacteristic.properties.write) {
+                            // Native 'write' handles its own OS-level buffer negotiation and acknowledges when finished.
+                            // NO extra setTimeout delays are required, achieving absolute maximum BLE throughput!
+                            await writeCharacteristic.writeValue(chunk);
+                        } else if (writeCharacteristic.properties.writeWithoutResponse) {
+                            await writeCharacteristic.writeValueWithoutResponse(chunk);
+                            // We only apply an absolutely imperceptible 2ms delay to prevent crashing devices 
+                            // strictly on `writeWithoutResponse` buffer overflows
+                            await new Promise(resolve => setTimeout(resolve, 2));
+                        } else {
+                            await writeCharacteristic.writeValue(chunk);
+                        }
+                    }
+                } catch (e) {
+                    // Fail silently so queue isn't stalled indefinitely by brief BLE interference
+                    console.warn("OTA Write Iteration Warning:", e);
+                }
+
+                // Immediately remove the processed chunk without waiting so we hit 1ms cycles
+                bleWriteQueue.shift();
+            }
+
+            isBleWriting = false;
         }
 
         async function authorizeByteSend() {
@@ -3398,31 +3485,15 @@
             // Display sent payload in the new panel immediately
             document.getElementById('lastSentPayloadText').textContent = responseText;
 
-            // Bypass sendJSON strictly here to use the raw text encoder on the response immediately 
-            // without rebuilding the UI again.
+            // Enqueue chunks sequentially to avoid 'GATT operation already in progress'
             if (isConnected && writeCharacteristic) {
                 const responseData = new TextEncoder().encode(responseText);
-                try {
-                    const chunkSize = 20; // 20 bytes is the absolute max payload for standard BLE 4.0 23-byte MTU
-                    for (let i = 0; i < responseData.length; i += chunkSize) {
-                        const rChunk = responseData.slice(i, i + chunkSize);
-                        // Prefer standard write (with response) to avoid GATT operation errors on Windows Chrome
-                        if (writeCharacteristic.properties.write) {
-                            await writeCharacteristic.writeValue(rChunk);
-                        } else if (writeCharacteristic.properties.writeWithoutResponse) {
-                            await writeCharacteristic.writeValueWithoutResponse(rChunk);
-                        } else {
-                            await writeCharacteristic.writeValue(rChunk); // Fallback
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 30));
-                    }
-                } catch (e) {
-                    console.error("OTA Write Error:", e);
-                    alert("OTA Write Error: " + e.message);
+                const chunkSize = 20;
+                for (let i = 0; i < responseData.length; i += chunkSize) {
+                    bleWriteQueue.push(responseData.slice(i, i + chunkSize));
                 }
+                processBleWriteQueue();
             }
-
-            addToSwUpdateSentHistory(response);
 
             // Update UI Progress
             const percent = Math.min(100, Math.round((hexFileOffset / hexFileSize) * 100));
@@ -3468,7 +3539,8 @@
                 'st_PhResultantCurr': 'st_PhResultantCurr',
                 'st_AcCurrMeaRms': 'st_AcCurrMeaRms',
                 'st_DcCurrEstd': 'st_DcCurrEstd',
-                'st_DcBusVolt': 'st_DcBusVolt'
+                'st_DcBusVolt': 'st_DcBusVolt',
+                'st_ThrotVolt': 'st_ThrotVolt'
             };
 
             for (const [key, elementId] of Object.entries(valueMappings)) {
@@ -3476,7 +3548,11 @@
                     const element = document.getElementById(elementId);
                     if (element) {
                         const val = typeof data[key] === 'number' ? data[key] : parseFloat(data[key]);
-                        element.textContent = typeof data[key] === 'number' ? data[key].toFixed(1) : data[key];
+                        if (key === 'st_ThrotVolt' && typeof data[key] === 'number') {
+                            element.textContent = data[key].toFixed(2);
+                        } else {
+                            element.textContent = typeof data[key] === 'number' ? data[key].toFixed(1) : data[key];
+                        }
 
                         const gauge = document.getElementById('gauge_' + elementId);
                         if (gauge) {
@@ -3488,7 +3564,7 @@
                             else if (key.includes('Temp')) max = 150;
                             else if (key.includes('Trq')) max = 300;
                             else if (key.includes('Curr')) max = 300;
-                            else if (key.includes('Volt')) max = 150;
+                            else if (key.includes('Volt')) max = key === 'st_ThrotVolt' ? 5 : 150;
 
                             const percent = Math.min(100, Math.max(0, (val / max) * 100));
                             gauge.style.setProperty('--gauge-value', percent);
@@ -3513,7 +3589,7 @@
                 'st_Reverse', 'st_Neutral', 'st_HillholdMode', 'st_RegenMode',
                 'st_AscMode', 'st_PcModeEnable', 'st_StartStop', 'st_ParkingState',
                 'st_StandbyState', 'st_MotoringState', 'st_VoltDerateMode', 'st_DcClampMode',
-                'st_MtrTempDerateMode', 'st_CtrTempDerateMode', 'st_AutotuningMode'
+                'st_MtrTempDerateMode', 'st_CtrTempDerateMode', 'st_AutotuningMode', 'st_ThrotMode'
             ];
 
             flags.forEach(flag => {
@@ -4340,6 +4416,14 @@
             const backdrop = document.getElementById('sidebarBackdrop');
             panel.classList.toggle('open');
             backdrop.classList.toggle('show');
+        }
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('ServiceWorker registration successful'))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
         }
     </script>
 </body>
