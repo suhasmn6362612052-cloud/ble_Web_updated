@@ -1666,7 +1666,8 @@
                                 <!-- Send Update Request Panel -->
                                 <div class="grid-panel">
                                     <div class="grid-title">📤 SEND SW UPDATE REQUEST</div>
-                                    <button class="btn btn-warning" onclick="sendSwUpdateRequest()"
+                                    <button id="requestSwUpdateBtn" class="btn btn-warning"
+                                        onclick="sendSwUpdateRequest()" disabled
                                         style="width: 100%; margin-top: 10px; padding: 15px;">📤 REQUEST SW
                                         UPDATE</button>
                                 </div>
@@ -1690,13 +1691,21 @@
                                 <div class="grid-panel" style="margin-top: 15px;">
                                     <div class="grid-title">📦 AUTOMATED BYTE TRANSFER</div>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                        <div style="background: rgba(10, 15, 30, 0.5); padding: 15px; border-radius: 5px; text-align: center;">
-                                            <div style="color: #8899aa; font-size: 11px; margin-bottom: 5px;">REQUESTED BYTES PENDING:</div>
-                                            <div id="pendingByteRequest" style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
+                                        <div
+                                            style="background: rgba(10, 15, 30, 0.5); padding: 15px; border-radius: 5px; text-align: center;">
+                                            <div style="color: #8899aa; font-size: 11px; margin-bottom: 5px;">REQUESTED
+                                                BYTES PENDING:</div>
+                                            <div id="pendingByteRequest"
+                                                style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
                                         </div>
-                                        <div style="background: rgba(10, 15, 30, 0.5); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden;">
-                                            <div style="color: #8899aa; font-size: 11px; padding: 5px 10px; background: rgba(0,0,0,0.3); border-bottom: 1px solid #1e2a3a;">LAST SENT PAYLOAD:</div>
-                                            <div id="lastSentPayloadText" style="padding: 10px; font-family: monospace; font-size: 11px; color: #00ffaa; white-space: pre-wrap; max-height: 50px; overflow-y: auto;">Waiting...</div>
+                                        <div
+                                            style="background: rgba(10, 15, 30, 0.5); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden;">
+                                            <div
+                                                style="color: #8899aa; font-size: 11px; padding: 5px 10px; background: rgba(0,0,0,0.3); border-bottom: 1px solid #1e2a3a;">
+                                                LAST SENT PAYLOAD:</div>
+                                            <div id="lastSentPayloadText"
+                                                style="padding: 10px; font-family: monospace; font-size: 11px; color: #00ffaa; white-space: pre-wrap; max-height: 50px; overflow-y: auto;">
+                                                Waiting...</div>
                                         </div>
                                     </div>
                                 </div>
@@ -3320,6 +3329,9 @@
                 document.getElementById('otaBytesSent').textContent = `0 bytes`;
                 document.getElementById('otaTotalBytes').textContent = `${hexFileSize} bytes`;
                 document.getElementById('otaProgressBar').style.width = `0%`;
+
+                const reqBtn = document.getElementById('requestSwUpdateBtn');
+                if (reqBtn) reqBtn.disabled = false;
             };
             reader.readAsText(file);
         }
@@ -3383,6 +3395,9 @@
             const responseText = JSON.stringify(response);
             document.getElementById('jsonInput').value = responseText;
 
+            // Display sent payload in the new panel immediately
+            document.getElementById('lastSentPayloadText').textContent = responseText;
+
             // Bypass sendJSON strictly here to use the raw text encoder on the response immediately 
             // without rebuilding the UI again.
             if (isConnected && writeCharacteristic) {
@@ -3426,9 +3441,6 @@
             pendingByteReq = null;
             document.getElementById('pendingByteRequest').textContent = 'WAITING...';
             document.getElementById('pendingByteRequest').style.color = '#ffaa00';
-            
-            // Display sent payload in the new panel
-            document.getElementById('lastSentPayloadText').textContent = responseText;
         }
 
         // SW History arrays retained if backend data pushes ever query them but safely nullified from UI
