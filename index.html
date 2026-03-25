@@ -1034,6 +1034,172 @@
                 text-align: center;
             }
         }
+
+        /* Circular Gauge Styles */
+        .gauge-container {
+            background: #0a0f1e;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #1e2a3a;
+        }
+
+        .gauge-circle {
+            position: relative;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: conic-gradient(var(--gauge-color) calc(var(--gauge-value) * 1%),
+                    #1e2a3a 0);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 4px solid #050810;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.8);
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .gauge-circle::before {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            background: #0a0f1e;
+            border-radius: 50%;
+            z-index: 1;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9);
+        }
+
+        .gauge-circle>* {
+            z-index: 2;
+            text-align: center;
+        }
+
+        .gauge-label {
+            color: #8899aa;
+            font-size: 10px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .gauge-value {
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .gauge-unit {
+            color: #8899aa;
+            font-size: 10px;
+            margin-top: 2px;
+            font-weight: bold;
+        }
+
+        /* Innovative Status Flags Design */
+        .sf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            padding: 5px;
+        }
+
+        .sf-card {
+            background: #111827;
+            border-radius: 8px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #1f2937;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sf-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            transition: all 0.4s ease;
+        }
+
+        .sf-card.sf-off::before {
+            background: #374151;
+        }
+
+        .sf-card.sf-on::before {
+            background: #00ffaa;
+            box-shadow: 0 0 10px #00ffaa;
+        }
+
+        .sf-card.sf-off {
+            background: linear-gradient(145deg, #111827, #0f1422);
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            opacity: 0.7;
+        }
+
+        .sf-card.sf-on {
+            background: linear-gradient(145deg, #162420, #0a0f1e);
+            border-color: rgba(0, 255, 170, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 255, 170, 0.1), inset 0 0 15px rgba(0, 255, 170, 0.05);
+            transform: translateY(-2px);
+            opacity: 1.0;
+        }
+
+        .sf-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #374151;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+            transition: all 0.4s ease;
+        }
+
+        .sf-card.sf-on .sf-indicator {
+            background: #00ffaa;
+            box-shadow: 0 0 8px #00ffaa, 0 0 12px #00ffaa;
+        }
+
+        .sf-name {
+            flex: 1;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+        }
+
+        .sf-card.sf-on .sf-name {
+            color: #d1d5db;
+        }
+
+        .sf-value {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .sf-value.sf-off-text {
+            color: #6b7280;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sf-value.sf-on-text {
+            color: #0a0f1e;
+            background: #00ffaa;
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.4);
+        }
     </style>
 
     <!-- Firebase SDK -->
@@ -1318,23 +1484,38 @@
                         <!-- Critical Values -->
                         <div class="grid-panel">
                             <div class="grid-title">⚡ CRITICAL VALUES</div>
-                            <div class="grid-4">
-                                <div class="value-box">
-                                    <div class="value-label">MOTOR SPEED</div>
-                                    <div><span class="value" id="st_MtrSpd">0</span><span class="unit">rpm</span></div>
-                                </div>
-                                <div class="value-box">
-                                    <div class="value-label">TORQUE</div>
-                                    <div><span class="value" id="st_ThrotTrq">0</span><span class="unit">Nm</span></div>
-                                </div>
-                                <div class="value-box">
-                                    <div class="value-label">CTRL TEMP</div>
-                                    <div><span class="value" id="st_CtrlrTemp">0</span><span class="unit">°C</span>
+                            <div class="grid-4" style="gap: 20px;">
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_MtrSpd"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">MOTOR SPEED</div>
+                                        <div><span class="gauge-value" id="st_MtrSpd">0</span></div>
+                                        <div class="gauge-unit">RPM</div>
                                     </div>
                                 </div>
-                                <div class="value-box">
-                                    <div class="value-label">MOTOR TEMP</div>
-                                    <div><span class="value" id="st_MtrTemp">0</span><span class="unit">°C</span></div>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_ThrotTrq"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">TORQUE</div>
+                                        <div><span class="gauge-value" id="st_ThrotTrq">0</span></div>
+                                        <div class="gauge-unit">Nm</div>
+                                    </div>
+                                </div>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_CtrlrTemp"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">CTRL TEMP</div>
+                                        <div><span class="gauge-value" id="st_CtrlrTemp">0</span></div>
+                                        <div class="gauge-unit">°C</div>
+                                    </div>
+                                </div>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_MtrTemp"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">MOTOR TEMP</div>
+                                        <div><span class="gauge-value" id="st_MtrTemp">0</span></div>
+                                        <div class="gauge-unit">°C</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1342,25 +1523,38 @@
                         <!-- Electrical Parameters -->
                         <div class="grid-panel">
                             <div class="grid-title">🔋 ELECTRICAL</div>
-                            <div class="grid-4">
-                                <div class="value-box">
-                                    <div class="value-label">Phase Current</div>
-                                    <div><span class="value" id="st_PhResultantCurr">0</span><span class="unit">A</span>
+                            <div class="grid-4" style="gap: 20px;">
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_PhResultantCurr"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">PHASE CURR</div>
+                                        <div><span class="gauge-value" id="st_PhResultantCurr">0</span></div>
+                                        <div class="gauge-unit">A</div>
                                     </div>
                                 </div>
-                                <div class="value-box">
-                                    <div class="value-label">AC RMS</div>
-                                    <div><span class="value" id="st_AcCurrMeaRms">0</span><span class="unit">A</span>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_AcCurrMeaRms"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">AC RMS</div>
+                                        <div><span class="gauge-value" id="st_AcCurrMeaRms">0</span></div>
+                                        <div class="gauge-unit">A</div>
                                     </div>
                                 </div>
-                                <div class="value-box">
-                                    <div class="value-label">DC Est</div>
-                                    <div><span class="value" id="st_DcCurrEstd">0</span><span class="unit">A</span>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_DcCurrEstd"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">DC EST</div>
+                                        <div><span class="gauge-value" id="st_DcCurrEstd">0</span></div>
+                                        <div class="gauge-unit">A</div>
                                     </div>
                                 </div>
-                                <div class="value-box">
-                                    <div class="value-label">Bus Volt</div>
-                                    <div><span class="value" id="st_DcBusVolt">0</span><span class="unit">V</span></div>
+                                <div class="gauge-container">
+                                    <div class="gauge-circle" id="gauge_st_DcBusVolt"
+                                        style="--gauge-value: 0; --gauge-color: #00d2ff;">
+                                        <div class="gauge-label">BUS VOLT</div>
+                                        <div><span class="gauge-value" id="st_DcBusVolt">0</span></div>
+                                        <div class="gauge-unit">V</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1368,7 +1562,7 @@
                         <!-- Status Flags -->
                         <div class="grid-panel" style="padding: 10px;">
                             <div class="grid-title">🚦 STATUS FLAGS</div>
-                            <div class="status-flags-grid" id="statusFlags"></div>
+                            <div class="sf-grid" id="statusFlags"></div>
                         </div>
 
                     </div>
@@ -1492,18 +1686,19 @@
                                     </div>
                                 </div>
 
-                                <!-- Send Requested Bytes Panel -->
+                                <!-- Automated Bytes Transfer Panel -->
                                 <div class="grid-panel" style="margin-top: 15px;">
-                                    <div class="grid-title">📦 SEND REQUESTED BYTES</div>
-                                    <div
-                                        style="background: rgba(10, 15, 30, 0.5); padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-                                        <div style="color: #8899aa; font-size: 12px; margin-bottom: 5px;">REQUESTED
-                                            BYTES PENDING:</div>
-                                        <div id="pendingByteRequest"
-                                            style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
+                                    <div class="grid-title">📦 AUTOMATED BYTE TRANSFER</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                        <div style="background: rgba(10, 15, 30, 0.5); padding: 15px; border-radius: 5px; text-align: center;">
+                                            <div style="color: #8899aa; font-size: 11px; margin-bottom: 5px;">REQUESTED BYTES PENDING:</div>
+                                            <div id="pendingByteRequest" style="color: #ffaa00; font-size: 24px; font-weight: bold;">0</div>
+                                        </div>
+                                        <div style="background: rgba(10, 15, 30, 0.5); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden;">
+                                            <div style="color: #8899aa; font-size: 11px; padding: 5px 10px; background: rgba(0,0,0,0.3); border-bottom: 1px solid #1e2a3a;">LAST SENT PAYLOAD:</div>
+                                            <div id="lastSentPayloadText" style="padding: 10px; font-family: monospace; font-size: 11px; color: #00ffaa; white-space: pre-wrap; max-height: 50px; overflow-y: auto;">Waiting...</div>
+                                        </div>
                                     </div>
-                                    <button class="btn btn-primary" onclick="authorizeByteSend()" id="authorizeByteBtn"
-                                        disabled style="width: 100%; padding: 15px;">📤 SEND REQUESTED BYTES </button>
                                 </div>
                             </div>
 
@@ -1905,13 +2100,16 @@
 
             const flagsDiv = document.getElementById('statusFlags');
             flagsDiv.innerHTML = '';
+            flagsDiv.className = 'sf-grid';
 
             flags.forEach(flag => {
                 const div = document.createElement('div');
-                div.className = 'flag-row';
+                div.className = 'sf-card sf-off';
+                div.id = 'card_' + flag;
                 div.innerHTML = `
-                    <span class="flag-name">${flagNames[flag]}</span>
-                    <span class="flag-value off" id="${flag}">OFF</span>
+                    <div class="sf-indicator"></div>
+                    <span class="sf-name">${flagNames[flag]}</span>
+                    <span class="sf-value sf-off-text" id="${flag}">OFF</span>
                 `;
                 flagsDiv.appendChild(div);
             });
@@ -2751,7 +2949,7 @@
                     if (jsonData.status.toLowerCase().includes('motoring mode')) {
                         const parkInd = document.getElementById('globalParkingState');
                         if (parkInd) {
-                            parkInd.textContent = 'Not in Parking';
+                            parkInd.textContent = 'OFF';
                             parkInd.style.color = '#ffaa00';
                         }
                     }
@@ -2793,7 +2991,7 @@
                     setFirebaseValue('latest_sw_update', jsonData);
                     addToSwUpdateReceivedHistory(jsonData);
                 }
-                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || cmd === 'byte request' || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
+                else if (cmd === 'req_bytes' || cmd === 'request_bytes' || cmd === 'byte request' || cmd === 'sw_updt_data_Req' || jsonData.request_bytes !== undefined || (jsonData.bytes !== undefined && jsonData.offset !== undefined)) {
                     addToSwUpdateReceivedHistory(jsonData);
                     handleByteRequest(jsonData);
                 }
@@ -3135,7 +3333,7 @@
             }
 
             // Determine length from device request (fallback to 8)
-            const length = data.no || data.length || data.size || data.bytes || 8;
+            const length = data.no || data.length || data.size || data.bytes || data.len || 8;
 
             if (hexFileOffset >= hexFileSize) {
                 console.log("OTA Complete, nothing more to send.");
@@ -3161,10 +3359,8 @@
             document.getElementById('pendingByteRequest').textContent = `${length} BYTES`;
             document.getElementById('pendingByteRequest').style.color = '#00ffaa';
 
-            const btn = document.getElementById('authorizeByteBtn');
-            btn.disabled = false;
-            btn.className = 'btn btn-success';
-            btn.textContent = '📤 SEND REQUESTED BYTES VIA BLE';
+            // Automatic send process
+            authorizeByteSend();
         }
 
         async function authorizeByteSend() {
@@ -3226,14 +3422,13 @@
                 document.getElementById('swUpdateFileStatus').style.color = '#ffaa00';
             }
 
-            // Lock Button again until next request
+            // Reset waiting state
             pendingByteReq = null;
             document.getElementById('pendingByteRequest').textContent = 'WAITING...';
             document.getElementById('pendingByteRequest').style.color = '#ffaa00';
-            const btn = document.getElementById('authorizeByteBtn');
-            btn.disabled = true;
-            btn.className = 'btn btn-primary';
-            btn.textContent = '📤 WAITING FOR REQUEST...';
+            
+            // Display sent payload in the new panel
+            document.getElementById('lastSentPayloadText').textContent = responseText;
         }
 
         // SW History arrays retained if backend data pushes ever query them but safely nullified from UI
@@ -3268,7 +3463,35 @@
                 if (data[key] !== undefined) {
                     const element = document.getElementById(elementId);
                     if (element) {
+                        const val = typeof data[key] === 'number' ? data[key] : parseFloat(data[key]);
                         element.textContent = typeof data[key] === 'number' ? data[key].toFixed(1) : data[key];
+
+                        const gauge = document.getElementById('gauge_' + elementId);
+                        if (gauge) {
+                            const prevVal = parseFloat(element.getAttribute('data-prev')) || 0;
+                            element.setAttribute('data-prev', val);
+
+                            let max = 100;
+                            if (key.includes('Spd')) max = 8000;
+                            else if (key.includes('Temp')) max = 150;
+                            else if (key.includes('Trq')) max = 300;
+                            else if (key.includes('Curr')) max = 300;
+                            else if (key.includes('Volt')) max = 150;
+
+                            const percent = Math.min(100, Math.max(0, (val / max) * 100));
+                            gauge.style.setProperty('--gauge-value', percent);
+
+                            if (val > prevVal) {
+                                gauge.style.setProperty('--gauge-color', '#00ffaa');
+                                gauge.style.boxShadow = '0 0 15px rgba(0,255,170,0.5), inset 0 0 10px rgba(0,0,0,0.8)';
+                            } else if (val < prevVal) {
+                                gauge.style.setProperty('--gauge-color', '#ff4444');
+                                gauge.style.boxShadow = '0 0 15px rgba(255,68,68,0.5), inset 0 0 10px rgba(0,0,0,0.8)';
+                            } else {
+                                gauge.style.setProperty('--gauge-color', '#00d2ff');
+                                gauge.style.boxShadow = '0 0 15px rgba(0,210,255,0.3), inset 0 0 10px rgba(0,0,0,0.8)';
+                            }
+                        }
                     }
                 }
             }
@@ -3283,22 +3506,27 @@
 
             flags.forEach(flag => {
                 const element = document.getElementById(flag);
+                const card = document.getElementById('card_' + flag);
                 if (element && data[flag] !== undefined) {
                     if (flag === 'st_ParkingState') {
                         if (data[flag] == 1 || data[flag] === true) {
                             element.textContent = 'Parked';
-                            element.className = 'flag-value on';
+                            element.className = 'sf-value sf-on-text';
+                            if (card) card.className = 'sf-card sf-on';
                         } else {
-                            element.textContent = 'Not in Parking';
-                            element.className = 'flag-value off';
+                            element.textContent = 'OFF';
+                            element.className = 'sf-value sf-off-text';
+                            if (card) card.className = 'sf-card sf-off';
                         }
                     } else {
                         if (data[flag] === 1) {
                             element.textContent = 'ON';
-                            element.className = 'flag-value on';
+                            element.className = 'sf-value sf-on-text';
+                            if (card) card.className = 'sf-card sf-on';
                         } else {
                             element.textContent = 'OFF';
-                            element.className = 'flag-value off';
+                            element.className = 'sf-value sf-off-text';
+                            if (card) card.className = 'sf-card sf-off';
                         }
                     }
                 }
@@ -3313,7 +3541,7 @@
                         parkInd.textContent = 'Parked';
                         parkInd.style.color = '#00ffaa';
                     } else {
-                        parkInd.textContent = 'Not in Parking';
+                        parkInd.textContent = 'OFF';
                         parkInd.style.color = '#ffaa00';
                     }
                 }
